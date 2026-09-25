@@ -5,7 +5,15 @@ import type { Conversation } from "@/lib/types";
 import { UserMessage } from "./UserMessage";
 import { AssistantMessage } from "./AssistantMessage";
 
-export function MessageList({ conversation }: { conversation: Conversation }) {
+export function MessageList({
+  conversation,
+  onEditUserMessage,
+  editingDisabled,
+}: {
+  conversation: Conversation;
+  onEditUserMessage: (id: string, text: string) => void;
+  editingDisabled: boolean;
+}) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -28,7 +36,12 @@ export function MessageList({ conversation }: { conversation: Conversation }) {
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6">
         {conversation.messages.map((m) =>
           m.role === "user" ? (
-            <UserMessage key={m.id} message={m} />
+            <UserMessage
+              key={m.id}
+              message={m}
+              onEdit={onEditUserMessage}
+              editingDisabled={editingDisabled}
+            />
           ) : (
             <AssistantMessage key={m.id} message={m} />
           ),

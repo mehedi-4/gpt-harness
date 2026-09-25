@@ -82,6 +82,58 @@ body {
   animation: shimmer 1.6s linear infinite;
 }
 
+/* "Max effort" glow — the animated gradient sweep ChatGPT shows when the
+   thinking-effort slider is pushed all the way up. */
+@keyframes effort-sweep {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+.effort-max-track {
+  background: linear-gradient(
+    90deg,
+    var(--color-violet),
+    var(--color-link),
+    var(--color-brand),
+    var(--color-violet)
+  );
+  background-size: 200% 100%;
+  animation: effort-sweep 2s linear infinite;
+}
+
+.effort-max-text {
+  background: linear-gradient(
+    90deg,
+    var(--color-violet),
+    var(--color-link),
+    var(--color-brand),
+    var(--color-violet)
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: effort-sweep 2s linear infinite;
+}
+
+@keyframes effort-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(91, 91, 245, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 10px 3px rgba(91, 91, 245, 0.55);
+  }
+}
+
+.effort-max-thumb {
+  animation: effort-glow 1.6s ease-in-out infinite;
+}
+
 /* Thin, unobtrusive scrollbars. */
 * {
   scrollbar-width: thin;

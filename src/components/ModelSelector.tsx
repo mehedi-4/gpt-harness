@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ModelId } from "@/lib/types";
-import { MODEL_FAMILIES, modelName } from "@/lib/models";
+import { ALL_MODELS, modelName } from "@/lib/models";
 
 export function ModelSelector({
   value,
@@ -43,36 +43,26 @@ export function ModelSelector({
 
       {open && (
         <div
-          className="absolute left-0 top-full z-50 mt-1 w-[280px] overflow-hidden rounded-menu border border-hairline bg-surface-1 py-1.5"
+          className="absolute left-0 top-full z-50 mt-1 w-[240px] overflow-hidden rounded-menu border border-hairline bg-surface-1 py-1.5"
           style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}
         >
-          {MODEL_FAMILIES.map((family) => (
-            <div key={family.label}>
-              <div className="px-3 pb-1 pt-2 text-xs font-semibold text-fg-secondary">
-                {family.label}
-              </div>
-              {family.models.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => {
-                    onChange(m.id);
-                    setOpen(false);
-                  }}
-                  className="flex w-full items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-surface-2"
-                >
-                  <div className="flex-1">
-                    <div className="text-[15px] font-medium">{m.name}</div>
-                    <div className="text-[13px] text-fg-secondary">{m.description}</div>
-                  </div>
-                  {value === m.id && (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="mt-0.5 shrink-0">
-                      <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </button>
-              ))}
-            </div>
+          {ALL_MODELS.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => {
+                onChange(m.id);
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-surface-2"
+            >
+              <span className="flex-1 text-[15px] font-medium">{m.name}</span>
+              {value === m.id && (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="shrink-0">
+                  <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </button>
           ))}
         </div>
       )}

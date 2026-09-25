@@ -4,6 +4,8 @@ import { useState } from "react";
 import type { Message } from "@/lib/types";
 import { Markdown } from "./Markdown";
 import { ThinkingIndicator } from "./ThinkingIndicator";
+import { SearchIndicator } from "./SearchIndicator";
+import { Citations } from "./Citations";
 
 function ActionButton({
   label,
@@ -44,6 +46,7 @@ export function AssistantMessage({ message }: { message: Message }) {
 
   return (
     <div className="group">
+      <SearchIndicator message={message} />
       <ThinkingIndicator message={message} />
 
       {message.error ? (
@@ -57,6 +60,10 @@ export function AssistantMessage({ message }: { message: Message }) {
       {/* Blinking caret while an empty answer is still streaming. */}
       {message.streaming && message.content.length === 0 && !message.reasoning && (
         <span className="inline-block h-4 w-2 animate-pulse bg-fg align-middle" />
+      )}
+
+      {message.citations && message.citations.length > 0 && (
+        <Citations citations={message.citations} />
       )}
 
       {showActions && (

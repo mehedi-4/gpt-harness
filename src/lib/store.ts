@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import type { Conversation, Message, ModelId, Effort } from "./types";
+import { persist, createJSONStorage } from "zustand/middleware";
+import type { Conversation, Message, ModelId, Effort, Attachment, Citation, SearchStatus } from "./types";
 import { DEFAULT_MODEL, DEFAULT_EFFORT } from "./models";
 
 function uid(): string {
@@ -39,10 +39,15 @@ interface ChatState {
   setModel: (model: ModelId) => void;
   setEffort: (effort: Effort) => void;
 
-  addUserMessage: (text: string) => Message;
+  addUserMessage: (text: string, attachments?: Attachment[]) => Message;
+  editUserMessage: (id: string, text: string) => void;
+  /** Drops every message after (and including) the given id. */
+  truncateAfter: (id: string, inclusive: boolean) => void;
   beginAssistant: () => Message;
   appendAnswer: (id: string, delta: string) => void;
   appendReasoning: (id: string, delta: string) => void;
+  setSearchStatus: (id: string, status: SearchStatus) => void;
+  addCitation: (id: string, citation: Citation) => void;
   finalizeAssistant: (id: string, thoughtSeconds: number) => void;
   setError: (id: string, message: string) => void;
 }
@@ -112,12 +117,13 @@ export const useChatStore = create<ChatState>()(
         set((s) => touch(s, id, (c) => ({ ...c, effort })));
       },
 
-      addUserMessage: (text) => {
+      addUserMessage: (text, attachments) => {
         const id = get().ensureActive();
         const msg: Message = {
           id: uid(),
           role: "user",
           content: text,
+          attachments: attachments && attachments.length ? attachments : undefined,
           createdAt: Date.now(),
         };
         set((s) =>
@@ -128,6 +134,32 @@ export const useChatStore = create<ChatState>()(
           })),
         );
         return msg;
+      },
+
+      editUserMessage: (msgId, text) => {
+        const id = get().activeId;
+        if (!id) return;
+        set((s) =>
+          touch(s, id, (c) => ({
+            ...c,
+            messages: c.messages.map((m) =>
+              m.id === msgId ? { ...m, content: text } : m,
+            ),
+          })),
+        );
+      },
+
+      truncateAfter: (msgId, inclusive) => {
+        const id = get().activeId;
+        if (!id) return;
+        set((s) =>
+          touch(s, id, (c) => {
+            const idx = c.messages.findIndex((m) => m.id === msgId);
+            if (idx < 0) return c;
+            const end = inclusive ? idx : idx + 1;
+            return { ...c, messages: c.messages.slice(0, end) };
+          }),
+        );
       },
 
       beginAssistant: () => {
@@ -172,6 +204,35 @@ export const useChatStore = create<ChatState>()(
         );
       },
 
+      setSearchStatus: (msgId, status) => {
+        const id = get().activeId;
+        if (!id) return;
+        set((s) =>
+          touch(s, id, (c) => ({
+            ...c,
+            messages: c.messages.map((m) =>
+              m.id === msgId ? { ...m, searchStatus: status } : m,
+            ),
+          })),
+        );
+      },
+
+      addCitation: (msgId, citation) => {
+        const id = get().activeId;
+        if (!id) return;
+        set((s) =>
+          touch(s, id, (c) => ({
+            ...c,
+            messages: c.messages.map((m) => {
+              if (m.id !== msgId) return m;
+              const existing = m.citations ?? [];
+              if (existing.some((x) => x.url === citation.url)) return m;
+              return { ...m, citations: [...existing, citation] };
+            }),
+          })),
+        );
+      },
+
       finalizeAssistant: (msgId, thoughtSeconds) => {
         const id = get().activeId;
         if (!id) return;
@@ -180,7 +241,14 @@ export const useChatStore = create<ChatState>()(
             ...c,
             messages: c.messages.map((m) =>
               m.id === msgId
-                ? { ...m, streaming: false, thoughtSeconds }
+                ? {
+                    ...m,
+                    streaming: false,
+                    thoughtSeconds,
+                    // Settle a still-"searching" indicator on completion/stop.
+                    searchStatus:
+                      m.searchStatus === "searching" ? "searched" : m.searchStatus,
+                  }
                 : m,
             ),
           })),
@@ -200,6 +268,35 @@ export const useChatStore = create<ChatState>()(
         );
       },
     }),
-    { name: "chat-store", version: 1 },
+    {
+      name: "chat-store",
+      version: 1,
+      // localStorage can throw QuotaExceededError once attachments pile up.
+      // Swallow write failures so the app keeps working (history just won't
+      // persist that update) instead of crashing mid-stream.
+      storage: createJSONStorage(() => ({
+        getItem: (name) => {
+          try {
+            return localStorage.getItem(name);
+          } catch {
+            return null;
+          }
+        },
+        setItem: (name, value) => {
+          try {
+            localStorage.setItem(name, value);
+          } catch {
+            /* over quota — keep running with in-memory state only */
+          }
+        },
+        removeItem: (name) => {
+          try {
+            localStorage.removeItem(name);
+          } catch {
+            /* ignore */
+          }
+        },
+      })),
+    },
   ),
 );

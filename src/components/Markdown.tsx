@@ -24,18 +24,31 @@ function CodeBlock({
   };
 
   return (
-    <div className="my-4 overflow-hidden rounded-lg border border-hairline bg-[#0d1117]">
-      <div className="flex items-center justify-between px-4 py-2 text-xs text-[#8b949e]">
+    <div className="my-4 rounded-lg border border-hairline bg-[#0d1117]">
+      {/* Sticky header keeps the copy button reachable even when the code
+          block is taller than the viewport and you've scrolled past its top.
+          No overflow-hidden on the wrapper, or sticky would be clipped. */}
+      <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-lg border-b border-white/10 bg-[#0d1117] px-4 py-2 text-xs text-[#8b949e]">
         <span className="font-mono">{lang || "text"}</span>
         <button
           onClick={copy}
-          className="transition-colors hover:text-white"
+          className="flex items-center gap-1 transition-colors hover:text-white"
           type="button"
         >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+            {copied ? (
+              <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            ) : (
+              <>
+                <rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.8" />
+                <path d="M5 15V5a2 2 0 012-2h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </>
+            )}
+          </svg>
           {copied ? "Copied!" : "Copy"}
         </button>
       </div>
-      <pre className="overflow-x-auto px-4 pb-4 pt-1 text-[13.5px] leading-relaxed">
+      <pre className="overflow-x-auto rounded-b-lg px-4 pb-4 pt-3 text-[13.5px] leading-relaxed">
         <code className={`font-mono ${className ?? ""}`}>{children}</code>
       </pre>
     </div>

@@ -3,10 +3,20 @@ import { NextRequest } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+type Effort =
+  | "none"
+  | "minimal"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh"
+  | "max";
+
 interface ChatRequestBody {
   model: string;
-  effort: "medium" | "high" | "xhigh";
-  input: Array<{ role: "user" | "assistant" | "system"; content: string }>;
+  effort: Effort;
+  input: Array<{ role: "user" | "assistant" | "system"; content: unknown }>;
+  webSearch?: boolean;
 }
 
 function json(status: number, body: unknown): Response {
@@ -31,6 +41,19 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   let upstream: Response;
   try {
+    // With effort "none" the model does no reasoning, so a summary is
+    // meaningless (and rejected by some models) — omit it in that case.
+    const reasoning =
+      body.effort === "none"
+        ? { effort: "none" as const }
+        : { effort: body.effort, summary: "auto" as const };
+
+    // Built-in hosted web search tool. `include` returns the full source list
+    // on the web_search_call item so we can surface citations.
+    const tools = body.webSearch
+      ? [{ type: "web_search", search_context_size: "medium" }]
+      : undefined;
+
     upstream = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
@@ -41,7 +64,14 @@ export async function POST(req: NextRequest): Promise<Response> {
         model: body.model,
         input: body.input,
         stream: true,
-        reasoning: { effort: body.effort, summary: "auto" },
+        reasoning,
+        ...(tools
+          ? {
+              tools,
+              tool_choice: "auto",
+              include: ["web_search_call.action.sources"],
+            }
+          : {}),
         // effort !== "none" → temperature/top_p are unsupported, so we omit them.
       }),
       signal: req.signal,
