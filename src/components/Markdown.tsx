@@ -3,8 +3,11 @@
 import { memo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import rehypeHighlight from "rehype-highlight";
+import rehypeKatex from "rehype-katex";
 import type { Components } from "react-markdown";
+import "katex/dist/katex.min.css";
 
 function CodeBlock({
   className,
@@ -53,6 +56,27 @@ function CodeBlock({
       </pre>
     </div>
   );
+}
+
+/**
+ * Models emit LaTeX with `\( … \)` (inline) and `\[ … \]` (display) delimiters,
+ * but remark-math only recognizes `$ … $` / `$$ … $$`. Rewrite the former into
+ * the latter so equations render. Code spans and fenced code blocks are left
+ * untouched — we split the text on them and only rewrite the prose segments.
+ */
+function normalizeMath(input: string): string {
+  // Split on fenced code blocks (```…```) and inline code (`…`), keeping the
+  // delimiters, so we never rewrite math-like sequences inside code.
+  const segments = input.split(/(```[\s\S]*?```|`[^`\n]*`)/g);
+  return segments
+    .map((seg, i) => {
+      // Odd indices are the captured code segments — leave them as-is.
+      if (i % 2 === 1) return seg;
+      return seg
+        .replace(/\\\[([\s\S]+?)\\\]/g, (_, body) => `$$${body}$$`)
+        .replace(/\\\(([\s\S]+?)\\\)/g, (_, body) => `$${body}$`);
+    })
+    .join("");
 }
 
 const components: Components = {
@@ -127,11 +151,28 @@ const components: Components = {
   },
 };
 
-function MarkdownImpl({ content }: { content: string }) {
+function MarkdownImpl({ content, streaming }: { content: string; streaming?: boolean }) {
+  // While a message is streaming, re-parsing the whole document (markdown + KaTeX
+  // + highlight.js) on every token is O(n²) and can crash the renderer on long
+  // answers ("Aw, Snap!"). So during streaming we render a cheap plain-text path
+  // (whitespace preserved, no parsing) and only run the full ReactMarkdown +
+  // math + syntax highlight once streaming has finished.
+  if (streaming) {
+    return (
+      <div className="whitespace-pre-wrap leading-[1.47] text-[17px]">
+        {content}
+      </div>
+    );
+  }
+
   return (
     <div className="leading-[1.47] text-[17px]">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]} components={components}>
-        {content}
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeHighlight, [rehypeKatex, { throwOnError: false, strict: false }]]}
+        components={components}
+      >
+        {normalizeMath(content)}
       </ReactMarkdown>
     </div>
   );

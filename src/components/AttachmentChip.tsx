@@ -33,12 +33,12 @@ export function AttachmentChip({
     </button>
   ) : null;
 
-  if (attachment.kind === "image" && attachment.dataUrl) {
+  if (attachment.kind === "image" && (attachment.url || attachment.dataUrl)) {
     return (
       <div className="relative">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={attachment.dataUrl}
+          src={attachment.url ?? attachment.dataUrl}
           alt={attachment.name}
           className="h-16 w-16 rounded-lg border border-hairline object-cover"
         />

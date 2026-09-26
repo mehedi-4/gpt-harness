@@ -112,3 +112,32 @@ export function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+/**
+ * Uploads image/pdf attachments to Cloudinary via /api/upload and returns copies
+ * with `url` set. `dataUrl` is kept for the immediate model call this turn; only
+ * `url` is persisted. Text attachments (no binary) pass through unchanged. On
+ * upload failure the attachment is returned without a `url` (still usable this
+ * session via its in-memory `dataUrl`).
+ */
+export async function uploadAttachments(
+  attachments: Attachment[],
+): Promise<Attachment[]> {
+  return Promise.all(
+    attachments.map(async (a) => {
+      if ((a.kind !== "image" && a.kind !== "pdf") || !a.dataUrl) return a;
+      try {
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dataUrl: a.dataUrl, filename: a.name }),
+        });
+        if (!res.ok) return a;
+        const { url } = (await res.json()) as { url: string };
+        return { ...a, url };
+      } catch {
+        return a;
+      }
+    }),
+  );
+}

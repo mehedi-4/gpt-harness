@@ -27,7 +27,9 @@ export function MessageList({
     const nearBottom =
       el.scrollHeight - el.scrollTop - el.clientHeight < 160;
     if (nearBottom) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      // Streaming deltas fire rapidly; smooth-scroll queued per delta compounds
+      // into jank, so jump instantly while content is growing.
+      bottomRef.current?.scrollIntoView({ behavior: "auto" });
     }
   }, [conversation.messages.length, streamingLen]);
 

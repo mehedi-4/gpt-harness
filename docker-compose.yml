@@ -1,0 +1,15 @@
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    # Atlas + Cloudinary are external managed services — no local db container.
+    # Supply credentials from an .env file next to this compose file (or the
+    # shell environment). Never commit real values.
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: ${MONGODB_URI}
+      CLOUDINARY_URL: ${CLOUDINARY_URL}
+    ports:
+      - "3000:3000"

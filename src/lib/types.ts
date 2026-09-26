@@ -26,8 +26,11 @@ export interface Attachment {
   kind: AttachmentKind;
   mime: string;
   size: number;
-  /** Data URL (base64) for image + pdf. */
+  /** Data URL (base64) for image + pdf. Transient: kept in memory for the model
+   *  call, stripped before persistence (the hosted `url` is stored instead). */
   dataUrl?: string;
+  /** Cloudinary-hosted URL for image + pdf. This is what persists. */
+  url?: string;
   /** Decoded contents for text/code files. */
   text?: string;
 }
@@ -39,6 +42,20 @@ export interface Citation {
 }
 
 export type SearchStatus = "searching" | "searched";
+
+/** Output aspect for image generation. */
+export type ImageSize = "1024x1024" | "1024x1536" | "1536x1024";
+
+/** Selectable image-generation model. */
+export type ImageModelId =
+  | "gpt-image-2.5-sunburst"
+  | "gpt-image-2.5-flare"
+  | "gpt-image-2"
+  | "gpt-image-1.5"
+  | "gpt-image-1";
+
+/** Output format for a generated document. */
+export type DocFormat = "pdf" | "markdown" | "text";
 
 export interface Message {
   id: string;
@@ -53,9 +70,19 @@ export interface Message {
   streaming?: boolean;
   /** Web-search progress + resulting sources (assistant only). */
   searchStatus?: SearchStatus;
+  /** The query terms the model searched for (in order, deduped). */
+  searchQueries?: string[];
   citations?: Citation[];
   /** Whether this user turn requested web search. */
   usedWebSearch?: boolean;
+  /** Image-generation turn (assistant only): render images instead of markdown. */
+  isImage?: boolean;
+  /** Generated image data URLs (assistant only). */
+  images?: string[];
+  /** Document-generation turn (assistant only): render markdown + download UI. */
+  isDocument?: boolean;
+  /** Chosen output format for a document turn. */
+  docFormat?: DocFormat;
   /** Error message to render in place of content. */
   error?: string;
   createdAt: number;

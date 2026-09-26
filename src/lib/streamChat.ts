@@ -4,6 +4,7 @@ export interface StreamHandlers {
   onReasoningDelta: (text: string) => void;
   onAnswerDelta: (text: string) => void;
   onSearchStart: () => void;
+  onSearchQuery: (query: string) => void;
   onSearchDone: () => void;
   onCitation: (citation: Citation) => void;
   onDone: () => void;
@@ -31,8 +32,8 @@ function buildUserContent(
   const textFiles: Attachment[] = [];
 
   for (const a of attachments) {
-    if (a.kind === "image" && a.dataUrl) {
-      parts.push({ type: "input_image", image_url: a.dataUrl });
+    if (a.kind === "image" && (a.url || a.dataUrl)) {
+      parts.push({ type: "input_image", image_url: (a.url ?? a.dataUrl) as string });
     } else if (a.kind === "pdf" && a.dataUrl) {
       parts.push({ type: "input_file", filename: a.name, file_data: a.dataUrl });
     } else if (a.kind === "text" && a.text != null) {
@@ -109,7 +110,12 @@ export async function streamChat(opts: {
         "Content-Type": "application/json",
         "x-openai-key": apiKey,
       },
-      body: JSON.stringify({ model, effort, input, webSearch: !!webSearch }),
+      body: JSON.stringify({
+        model,
+        effort,
+        input,
+        webSearch: !!webSearch,
+      }),
       signal,
     });
   } catch (err) {
@@ -118,6 +124,14 @@ export async function streamChat(opts: {
     return;
   }
 
+  await consumeSse(res, handlers);
+}
+
+/** Shared SSE reader/parser. */
+async function consumeSse(
+  res: Response,
+  handlers: StreamHandlers,
+): Promise<void> {
   if (!res.ok || !res.body) {
     const raw = res.body ? await res.text() : "";
     handlers.onError(parseOpenAiError(raw, res.status));
@@ -154,6 +168,7 @@ export async function streamChat(opts: {
         }
 
         const type = (payload.type as string) || eventType;
+
         switch (type) {
           case "response.reasoning_summary_text.delta":
             handlers.onReasoningDelta((payload.delta as string) ?? "");
@@ -178,16 +193,21 @@ export async function streamChat(opts: {
             break;
           }
           case "response.output_item.done": {
-            // Fallback: some payloads only carry citations on the finished
-            // message item's content annotations.
             const item = payload.item as
               | {
                   type?: string;
+                  action?: { type?: string; query?: string };
                   content?: Array<{
                     annotations?: Array<{ type?: string; url?: string; title?: string }>;
                   }>;
                 }
               | undefined;
+            // A finished web_search_call carries the query it ran under `action`.
+            if (item?.type === "web_search_call" && item.action?.query) {
+              handlers.onSearchQuery(item.action.query);
+            }
+            // Fallback: some payloads only carry citations on the finished
+            // message item's content annotations.
             if (item?.type === "message" && item.content) {
               for (const part of item.content) {
                 for (const ann of part.annotations ?? []) {

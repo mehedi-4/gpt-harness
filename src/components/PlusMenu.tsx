@@ -21,12 +21,22 @@ function GlobeIcon() {
   );
 }
 
-function ResearchIcon() {
+function ImageIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-      <path d="M11 8v6M8 11h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <rect x="3" y="4" width="18" height="16" rx="2.5" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="9" cy="9.5" r="1.6" fill="currentColor" />
+      <path d="M4.5 18l4.5-4.5 3.5 3.5 3-3 4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function DocumentIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path d="M14 3v4a1 1 0 001 1h4" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+      <path d="M6 3h8l5 5v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+      <path d="M8 12h8M8 16h5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
     </svg>
   );
 }
@@ -34,10 +44,18 @@ function ResearchIcon() {
 export function PlusMenu({
   webSearch,
   onToggleWebSearch,
+  imageMode,
+  onToggleImageMode,
+  docMode,
+  onToggleDocMode,
   onAddPhotosFiles,
 }: {
   webSearch: boolean;
   onToggleWebSearch: () => void;
+  imageMode: boolean;
+  onToggleImageMode: () => void;
+  docMode: boolean;
+  onToggleDocMode: () => void;
   onAddPhotosFiles: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -106,12 +124,36 @@ export function PlusMenu({
 
           <button
             type="button"
-            disabled
-            className="flex w-full cursor-not-allowed items-center gap-3 px-3 py-2.5 text-left text-[15px] text-fg-tertiary"
+            onClick={() => {
+              onToggleImageMode();
+              setOpen(false);
+            }}
+            className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-[15px] transition-colors hover:bg-surface-2"
           >
-            <ResearchIcon />
-            <span className="flex-1">Deep research</span>
-            <span className="text-[11px] text-fg-tertiary">Soon</span>
+            <ImageIcon />
+            <span className="flex-1">Images</span>
+            {imageMode && (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              onToggleDocMode();
+              setOpen(false);
+            }}
+            className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-[15px] transition-colors hover:bg-surface-2"
+          >
+            <DocumentIcon />
+            <span className="flex-1">Documents</span>
+            {docMode && (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
           </button>
         </div>
       )}

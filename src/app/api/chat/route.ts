@@ -49,9 +49,10 @@ export async function POST(req: NextRequest): Promise<Response> {
         : { effort: body.effort, summary: "auto" as const };
 
     // Built-in hosted web search tool. `include` returns the full source list
-    // on the web_search_call item so we can surface citations.
+    // on the web_search_call item so we can surface citations. "high" context
+    // pulls more of each page into the model for better-grounded answers.
     const tools = body.webSearch
-      ? [{ type: "web_search", search_context_size: "medium" }]
+      ? [{ type: "web_search", search_context_size: "high" }]
       : undefined;
 
     upstream = await fetch("https://api.openai.com/v1/responses", {
