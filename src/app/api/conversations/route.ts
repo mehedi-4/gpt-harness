@@ -16,7 +16,8 @@ export async function GET(): Promise<Response> {
   try {
     const conversations = await listConversations();
     return json(200, { conversations });
-  } catch {
+  } catch (e) {
+    console.error("GET /api/conversations failed:", e);
     return json(500, { error: { message: "Failed to load conversations." } });
   }
 }

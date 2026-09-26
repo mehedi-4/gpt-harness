@@ -54,7 +54,9 @@ function makeClient(): MongoClient {
   if (!uri) {
     throw new Error("MONGODB_URI is not set.");
   }
-  return new MongoClient(uri);
+  // Fail fast (rather than the 30s default) when Atlas is unreachable — most
+  // often because the deploy host's egress IP isn't in the Atlas allowlist.
+  return new MongoClient(uri, { serverSelectionTimeoutMS: 8000 });
 }
 
 /** Lazily create (and cache) the connected client. Deferred so build-time module
