@@ -334,6 +334,7 @@ function Chat() {
         <div className={`w-full shrink-0 px-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-4 ${hasMessages ? "sm:pb-4" : "sm:pb-[12vh]"}`}>
           <div className="mx-auto w-full max-w-3xl">
             <Composer
+              model={model}
               effort={effort}
               onEffortChange={(e) => store.getState().setEffort(e)}
               onSend={handleSend}

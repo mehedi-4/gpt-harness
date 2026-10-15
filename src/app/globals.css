@@ -90,56 +90,53 @@ body {
   animation: shimmer 1.6s linear infinite;
 }
 
-/* "Max effort" glow — the animated gradient sweep ChatGPT shows when the
-   thinking-effort slider is pushed all the way up. */
-@keyframes effort-sweep {
-  0% {
-    background-position: 0% 50%;
-  }
-  100% {
-    background-position: 200% 50%;
-  }
+/* Warm, speckled effort rail; the native range keeps touch and keyboard input. */
+.effort-warm-fill {
+  background: linear-gradient(90deg, #9d4b2c, #b76942 55%, #c38c68);
+  box-shadow: 0 0 16px #cd835b40, inset 0 1px 0 #fbc6a126;
 }
 
-.effort-max-track {
-  background: linear-gradient(
-    90deg,
-    var(--color-violet),
-    var(--color-link),
-    var(--color-brand),
-    var(--color-violet)
-  );
-  background-size: 200% 100%;
-  animation: effort-sweep 2s linear infinite;
+.effort-sparks {
+  opacity: 0.55;
+  filter: drop-shadow(0 0 2px #ffc397);
 }
 
-.effort-max-text {
-  background: linear-gradient(
-    90deg,
-    var(--color-violet),
-    var(--color-link),
-    var(--color-brand),
-    var(--color-violet)
-  );
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: effort-sweep 2s linear infinite;
+.effort-rail[data-max="true"] .effort-sparks {
+  animation: effort-twinkle 2.4s ease-in-out infinite alternate;
 }
 
-@keyframes effort-glow {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(91, 91, 245, 0.5);
-  }
-  50% {
-    box-shadow: 0 0 10px 3px rgba(91, 91, 245, 0.55);
-  }
+@keyframes effort-twinkle {
+  from { opacity: 0.5; }
+  to { opacity: 0.95; }
 }
 
-.effort-max-thumb {
-  animation: effort-glow 1.6s ease-in-out infinite;
+.effort-rail:has(input:focus-visible) {
+  outline: 2px solid #e2a783;
+  outline-offset: 2px;
+}
+
+.effort-range { appearance: none; background: transparent; }
+.effort-range::-webkit-slider-runnable-track { height: 24px; background: transparent; }
+.effort-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  margin-top: -2px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+}
+.effort-range::-moz-range-track { height: 24px; background: transparent; }
+.effort-range::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .effort-rail[data-max="true"] .effort-sparks { animation: none; }
 }
 
 /* Thin, unobtrusive scrollbars. */

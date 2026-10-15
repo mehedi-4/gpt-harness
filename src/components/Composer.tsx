@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import type { Effort, Attachment, ImageSize, ImageModelId } from "@/lib/types";
+import type { Effort, Attachment, ImageSize, ImageModelId, ModelId } from "@/lib/types";
 import { IMAGE_SIZES, imageSizeLabel, imageModelName, type ModelDef } from "@/lib/models";
 import { EffortSlider } from "./EffortSlider";
 import { AttachmentChip } from "./AttachmentChip";
@@ -142,6 +142,7 @@ function ImageSizeSelector({
 }
 
 export function Composer({
+  model,
   effort,
   onEffortChange,
   onSend,
@@ -163,6 +164,7 @@ export function Composer({
   imageModels,
   disabled,
 }: {
+  model: ModelId;
   effort: Effort;
   onEffortChange: (e: Effort) => void;
   onSend: (text: string) => void;
@@ -314,7 +316,7 @@ export function Composer({
               </button>
             )}
 
-            <EffortSlider value={effort} onChange={onEffortChange} />
+            <EffortSlider model={model} value={effort} onChange={onEffortChange} />
           </>
         )}
 
