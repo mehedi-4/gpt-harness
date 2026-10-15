@@ -1,6 +1,7 @@
 import { env, exports } from "cloudflare:workers";
 import { applyD1Migrations } from "cloudflare:test";
 import { beforeAll, beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { chatModelCatalog } from "../src/lib/models";
 
 const origin = "https://chat.example.com";
 const password = "test-password-12345";
@@ -111,6 +112,19 @@ describe("accounts and isolation", () => {
 });
 
 describe("private R2 and OpenAI", () => {
+  it("keeps manually added models when discovery omits them or returns no chat models", () => {
+    const returned = ["gpt-6.1-sol", "gpt-6-sol", "gpt-6-astra", "gpt-6-luna"].map((id) => ({ id }));
+    for (const catalog of [chatModelCatalog(), chatModelCatalog([]), chatModelCatalog(returned)]) {
+      const ids = catalog.map((model) => model.id);
+      expect(ids).toContain("gpt-6.1-luna");
+      expect(ids).toContain("gpt-6-terra");
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+    const expanded = chatModelCatalog([...returned, { id: "gpt-7" }, { id: "gpt-5.6-sol" }, { id: "gpt-6-realtime" }]);
+    expect(expanded[0].id).toBe("gpt-7");
+    expect(expanded.some((model) => model.id === "gpt-5.6-sol" || model.id === "gpt-6-realtime")).toBe(false);
+  });
+
   it("saves private files, denies other users, and rejects unsafe uploads", async () => {
     const owner = await register(), other = await register("other@example.com");
     const response = await call("upload", "POST", { dataUrl: png, filename: "sample.png" }, owner.cookie);
@@ -168,6 +182,12 @@ describe("private R2 and OpenAI", () => {
     expect(sent.input[0].content[1].file_data).toBe(pdf);
     expect(sent.input[0].content[2]).toEqual({ type: "input_text", text: "File: code.ts\nSaved code" });
     expect(sent.store).toBe(false);
+    for (const model of ["gpt-6.1-luna", "gpt-6-terra"]) {
+      const selected = await call("chat", "POST", { ...body, model }, cookie, { "x-openai-key": "user-key" });
+      expect(selected.status).toBe(200);
+      await selected.text();
+      expect(JSON.parse(spy.mock.lastCall![1]?.body as string).model).toBe(model);
+    }
     expect((await call("chat", "POST", { ...body, model: "gpt-5.6-sol" }, cookie, { "x-openai-key": "user-key" })).status).toBe(400);
     expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM sessions").first()).toEqual({ n: 1 });
   });

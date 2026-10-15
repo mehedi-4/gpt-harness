@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/apiFetch";
-import { modelName, type ModelDef } from "@/lib/models";
+import { chatModelCatalog, modelName, type ModelDef } from "@/lib/models";
 import { useChatStore } from "@/lib/store";
+
+const manualModels = chatModelCatalog();
 
 export function useModelCatalog(apiKey: string) {
   const [catalog, setCatalog] = useState<{ key: string; revision: number; models: ModelDef[]; imageModels: ModelDef[]; error: string }>({ key: "", revision: -1, models: [], imageModels: [], error: "" });
@@ -24,15 +26,15 @@ export function useModelCatalog(apiKey: string) {
         if (!response.ok) throw new Error(data.error?.message ?? "Could not load models.");
         if (controller.signal.aborted) return;
         const define = (items: { id: string }[]) => items.map((m) => ({ id: m.id, name: modelName(m.id) }));
-        const models = define(data.models);
-        setCatalog({ key: apiKey, revision, models, imageModels: define(data.imageModels), error: models.length ? "" : "No GPT-6 or newer models are available for this API key." });
+        const models = chatModelCatalog(data.models);
+        setCatalog({ key: apiKey, revision, models, imageModels: define(data.imageModels), error: "" });
         if (models[0]) useChatStore.getState().setDefaultModel(models[0].id);
       } catch (error) {
-        if (!controller.signal.aborted) setCatalog((previous) => ({ key: apiKey, revision, models: previous.key === apiKey ? previous.models : [], imageModels: previous.key === apiKey ? previous.imageModels : [], error: error instanceof Error ? error.message : "Could not load models." }));
+        if (!controller.signal.aborted) setCatalog((previous) => ({ key: apiKey, revision, models: previous.key === apiKey && previous.models.length ? previous.models : manualModels, imageModels: previous.key === apiKey ? previous.imageModels : [], error: error instanceof Error ? error.message : "Could not load models." }));
       }
     })();
     return () => controller.abort();
   }, [apiKey, revision]);
   const current = !!apiKey && catalog.key === apiKey;
-  return { models: current ? catalog.models : [], imageModels: current ? catalog.imageModels : [], loading: !!apiKey && (!current || catalog.revision !== revision), error: current && catalog.revision === revision ? catalog.error : "", refresh };
+  return { models: current ? catalog.models : manualModels, imageModels: current ? catalog.imageModels : [], loading: !!apiKey && (!current || catalog.revision !== revision), error: current && catalog.revision === revision ? catalog.error : "", refresh };
 }

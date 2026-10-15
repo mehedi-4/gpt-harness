@@ -5,7 +5,9 @@ Live app: [gpt-harness.pages.dev](https://gpt-harness.pages.dev).
 
 Next.js static frontend on Cloudflare Pages, with a private Cloudflare Worker API. D1 stores accounts, hashed sessions, and per-user conversations. A private R2 bucket stores uploaded files and generated images. No MongoDB, Cloudinary, or Node server is needed.
 
-Users create an email/password account, then enter their own OpenAI API key in Settings. Keys remain in account-scoped browser storage and are forwarded to OpenAI only for requests; they are never stored in D1 or R2. Each browser/device needs its own key. The app fetches available models on startup, API-key changes, opening the model menu, and returning to the tab. All GPT-6 or newer text models returned for that key (including minor versions and model variants) and the newest available GPT Image generation appear. Model IDs are never guessed or added without API access.
+Users create an email/password account, then enter their own OpenAI API key in Settings. Keys remain in account-scoped browser storage and are forwarded to OpenAI only for requests; they are never stored in D1 or R2. Each browser/device needs its own key. GPT-6.1 Sol, GPT-6.1 Luna, GPT-6 Astra, GPT-6 Sol, GPT-6 Terra, and GPT-6 Luna always appear in the model menu. Add future IDs to `MANUAL_CHAT_MODEL_IDS` in `src/lib/models.ts`. These manual choices remain visible even if OpenAI omits them from discovery; OpenAI still determines whether a key can use a selected model and errors appear in the chat.
+
+The app also fetches available models on startup, API-key changes, opening the model menu, and returning to the tab. Additional GPT-6 or newer text models returned for that key are merged into the menu without duplicates. Image generation continues to use the newest available GPT Image generation returned by OpenAI.
 
 ## Local development
 

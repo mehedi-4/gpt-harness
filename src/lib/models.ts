@@ -1,4 +1,5 @@
 import type { ModelId, Effort, ImageSize, ImageModelId } from "./types";
+import { newestChatModels } from "./modelDiscovery";
 
 export interface ModelDef {
   id: ModelId;
@@ -9,6 +10,22 @@ export const DEFAULT_MODEL: ModelId = "gpt-6-luna";
 
 export function modelName(id: ModelId): string {
   return id.replace(/^gpt-/, "GPT-").replace(/-([a-z])/g, (_, c: string) => ` ${c.toUpperCase()}`);
+}
+
+// Add future chat model IDs here. These choices stay visible even when omitted
+// from /v1/models; OpenAI reports any access errors when a request is sent.
+export const MANUAL_CHAT_MODEL_IDS: readonly ModelId[] = [
+  "gpt-6.1-sol",
+  "gpt-6.1-luna",
+  "gpt-6-astra",
+  "gpt-6-sol",
+  "gpt-6-terra",
+  "gpt-6-luna",
+];
+
+export function chatModelCatalog(available: { id: string }[] = []): ModelDef[] {
+  const entries = new Map([...available, ...MANUAL_CHAT_MODEL_IDS.map((id) => ({ id }))].map((model) => [model.id, model]));
+  return newestChatModels([...entries.values()]).map(({ id }) => ({ id, name: modelName(id) }));
 }
 
 /* ── Image generation ──────────────────────────────────────────────────────
