@@ -159,14 +159,14 @@ function MarkdownImpl({ content, streaming }: { content: string; streaming?: boo
   // math + syntax highlight once streaming has finished.
   if (streaming) {
     return (
-      <div className="whitespace-pre-wrap leading-[1.47] text-[17px]">
+      <div className="whitespace-pre-wrap [overflow-wrap:anywhere] leading-[1.47] text-[17px]">
         {content}
       </div>
     );
   }
 
   return (
-    <div className="leading-[1.47] text-[17px]">
+    <div className="min-w-0 [overflow-wrap:anywhere] leading-[1.47] text-[17px]">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeHighlight, [rehypeKatex, { throwOnError: false, strict: false }]]}

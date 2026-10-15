@@ -1,10 +1,4 @@
-export type ModelId =
-  | "gpt-5.6-luna"
-  | "gpt-5.6-terra"
-  | "gpt-5.6-sol"
-  | "gpt-6-luna"
-  | "gpt-6-sol"
-  | "gpt-6-astra";
+export type ModelId = string;
 
 export type Effort =
   | "none"
@@ -26,12 +20,12 @@ export interface Attachment {
   kind: AttachmentKind;
   mime: string;
   size: number;
-  /** Data URL (base64) for image + pdf. Transient: kept in memory for the model
+  /** Data URL (base64) for uploads. Transient: kept in memory for the model
    *  call, stripped before persistence (the hosted `url` is stored instead). */
   dataUrl?: string;
-  /** Cloudinary-hosted URL for image + pdf. This is what persists. */
+  /** Authenticated, owner-scoped R2 URL. */
   url?: string;
-  /** Decoded contents for text/code files. */
+  /** Transient decoded contents for text/code files. */
   text?: string;
 }
 
@@ -47,12 +41,7 @@ export type SearchStatus = "searching" | "searched";
 export type ImageSize = "1024x1024" | "1024x1536" | "1536x1024";
 
 /** Selectable image-generation model. */
-export type ImageModelId =
-  | "gpt-image-2.5-sunburst"
-  | "gpt-image-2.5-flare"
-  | "gpt-image-2"
-  | "gpt-image-1.5"
-  | "gpt-image-1";
+export type ImageModelId = string;
 
 /** Output format for a generated document. */
 export type DocFormat = "pdf" | "markdown" | "text";

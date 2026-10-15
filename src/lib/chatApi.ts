@@ -1,4 +1,5 @@
 import type { Conversation, Message, ModelId, Effort } from "./types";
+import { apiFetch } from "./apiFetch";
 
 /**
  * Client-side wrapper over the `/api/conversations` CRUD routes. All calls are
@@ -10,12 +11,32 @@ import type { Conversation, Message, ModelId, Effort } from "./types";
 export type ConversationMeta = Omit<Conversation, "messages">;
 
 async function req(input: string, init?: RequestInit): Promise<Response> {
-  const res = await fetch(input, {
+  const res = await apiFetch(input, {
     ...init,
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
-  if (!res.ok) throw new Error(`Request failed (${res.status}).`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error?.message ?? `Request failed (${res.status}).`);
+  }
   return res;
+}
+
+let pending: Promise<unknown> = Promise.resolve();
+let generation = 0;
+let controller = new AbortController();
+export function resetQueue() { generation++; controller.abort(); controller = new AbortController(); pending = Promise.resolve(); }
+export async function flushWrites() { await pending.catch(() => {}); }
+
+function write(input: string, init: RequestInit): Promise<void> {
+  const version = generation;
+  const signal = controller.signal;
+  const next = pending.catch(() => {}).then(async () => {
+    if (version !== generation) throw new DOMException("Account changed", "AbortError");
+    await req(input, { ...init, signal });
+  });
+  pending = next;
+  return next;
 }
 
 export async function fetchConversations(): Promise<ConversationMeta[]> {
@@ -25,21 +46,21 @@ export async function fetchConversations(): Promise<ConversationMeta[]> {
 }
 
 export async function createConversation(c: ConversationMeta): Promise<void> {
-  await req("/api/conversations", { method: "POST", body: JSON.stringify(c) });
+  await write("/api/conversations", { method: "POST", body: JSON.stringify(c) });
 }
 
 export async function patchConversation(
   id: string,
   patch: { title?: string; model?: ModelId; effort?: Effort },
 ): Promise<void> {
-  await req(`/api/conversations/${id}`, {
+  await write(`/api/conversations/${id}`, {
     method: "PATCH",
     body: JSON.stringify(patch),
   });
 }
 
 export async function deleteConversation(id: string): Promise<void> {
-  await req(`/api/conversations/${id}`, { method: "DELETE" });
+  await write(`/api/conversations/${id}`, { method: "DELETE" });
 }
 
 export async function fetchMessages(id: string): Promise<Message[]> {
@@ -49,7 +70,7 @@ export async function fetchMessages(id: string): Promise<Message[]> {
 }
 
 export async function appendMessage(id: string, m: Message): Promise<void> {
-  await req(`/api/conversations/${id}/messages`, {
+  await write(`/api/conversations/${id}/messages`, {
     method: "POST",
     body: JSON.stringify(m),
   });
@@ -59,7 +80,7 @@ export async function updateMessage(
   conversationId: string,
   m: Message,
 ): Promise<void> {
-  await req(`/api/conversations/${conversationId}/messages/${m.id}`, {
+  await write(`/api/conversations/${conversationId}/messages/${m.id}`, {
     method: "PATCH",
     body: JSON.stringify(m),
   });
@@ -70,7 +91,7 @@ export async function truncateAfter(
   messageId: string,
   inclusive: boolean,
 ): Promise<void> {
-  await req(`/api/conversations/${conversationId}/truncate`, {
+  await write(`/api/conversations/${conversationId}/truncate`, {
     method: "POST",
     body: JSON.stringify({ messageId, inclusive }),
   });

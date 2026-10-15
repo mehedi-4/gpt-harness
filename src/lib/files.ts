@@ -1,6 +1,7 @@
 import type { Attachment, AttachmentKind } from "./types";
+import { apiFetch } from "./apiFetch";
 
-/** Per-file size ceiling. Base64 in localStorage is heavy, so keep it modest. */
+/** Per-file size ceiling, shared with the Worker upload limit. */
 export const MAX_FILE_BYTES = 20 * 1024 * 1024; // 20 MB
 
 const TEXT_EXTENSIONS = new Set([
@@ -38,7 +39,7 @@ export function classify(file: File): AttachmentKind {
   return TEXT_EXTENSIONS.has(extOf(file.name)) ? "text" : "text";
 }
 
-function readAsDataUrl(file: File): Promise<string> {
+function readAsDataUrl(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
     r.onload = () => resolve(r.result as string);
@@ -88,7 +89,8 @@ export async function readFile(file: File): Promise<FileReadResult> {
       return { attachment: { ...base, dataUrl } };
     }
     const text = await readAsText(file);
-    return { attachment: { ...base, text } };
+    const dataUrl = await readAsDataUrl(new Blob([text], { type: "text/plain" }));
+    return { attachment: { ...base, text, dataUrl } };
   } catch {
     return { error: `Could not read ${file.name}.` };
   }
@@ -114,30 +116,25 @@ export function formatBytes(bytes: number): string {
 }
 
 /**
- * Uploads image/pdf attachments to Cloudinary via /api/upload and returns copies
- * with `url` set. `dataUrl` is kept for the immediate model call this turn; only
- * `url` is persisted. Text attachments (no binary) pass through unchanged. On
- * upload failure the attachment is returned without a `url` (still usable this
- * session via its in-memory `dataUrl`).
+ * Uploads binaries to private R2 before they can be sent or persisted.
  */
 export async function uploadAttachments(
   attachments: Attachment[],
 ): Promise<Attachment[]> {
   return Promise.all(
     attachments.map(async (a) => {
-      if ((a.kind !== "image" && a.kind !== "pdf") || !a.dataUrl) return a;
-      try {
-        const res = await fetch("/api/upload", {
+      if (!a.dataUrl) return a;
+        const res = await apiFetch("/api/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ dataUrl: a.dataUrl, filename: a.name }),
         });
-        if (!res.ok) return a;
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          throw new Error(data?.error?.message ?? `Could not upload ${a.name}. Please try again.`);
+        }
         const { url } = (await res.json()) as { url: string };
         return { ...a, url };
-      } catch {
-        return a;
-      }
     }),
   );
 }

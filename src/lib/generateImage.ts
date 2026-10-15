@@ -1,4 +1,5 @@
 import type { ImageSize, ImageModelId } from "./types";
+import { apiFetch } from "./apiFetch";
 
 /**
  * Generates image(s) via the local `/api/image` proxy. Non-streaming — returns
@@ -17,7 +18,7 @@ export async function generateImage(opts: {
 
   let res: Response;
   try {
-    res = await fetch("/api/image", {
+    res = await apiFetch("/api/image", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

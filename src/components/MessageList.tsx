@@ -34,7 +34,7 @@ export function MessageList({
   }, [conversation.messages.length, streamingLen]);
 
   return (
-    <div ref={containerRef} className="flex-1 overflow-y-auto">
+    <div ref={containerRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6">
         {conversation.messages.map((m) =>
           m.role === "user" ? (

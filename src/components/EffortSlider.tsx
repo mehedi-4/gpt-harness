@@ -56,7 +56,7 @@ export function EffortSlider({
 
       {open && (
         <div
-          className="absolute bottom-full left-0 z-50 mb-2 w-[280px] rounded-menu border border-hairline bg-surface-1 p-4"
+          className="absolute bottom-full left-0 z-50 mb-2 w-[min(280px,calc(100vw-92px))] rounded-menu border border-hairline bg-surface-1 p-4"
           style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}
         >
           <div className="mb-3 flex items-center justify-between">

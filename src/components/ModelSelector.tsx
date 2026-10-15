@@ -2,14 +2,22 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ModelId } from "@/lib/types";
-import { ALL_MODELS, modelName } from "@/lib/models";
+import { modelName, type ModelDef } from "@/lib/models";
 
 export function ModelSelector({
   value,
   onChange,
+  models,
+  loading,
+  onRefresh,
+  disabled,
 }: {
   value: ModelId;
   onChange: (id: ModelId) => void;
+  models: ModelDef[];
+  loading: boolean;
+  onRefresh: () => void;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -29,24 +37,31 @@ export function ModelSelector({
   }, [open]);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative min-w-0">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[18px] font-medium transition-colors hover:bg-surface-2"
+        disabled={disabled}
+        aria-expanded={open}
+        aria-label="Choose model"
+        onClick={() => {
+          if (!open && !loading) onRefresh();
+          setOpen((o) => !o);
+        }}
+        className="flex max-w-full items-center gap-1 rounded-lg px-2.5 py-1.5 text-[18px] font-medium transition-colors hover:bg-surface-2"
       >
-        <span>{modelName(value)}</span>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-fg-secondary">
+        <span className="min-w-0 max-w-[60vw] truncate">{models.length ? modelName(value) : loading ? "Loading models…" : "Choose model"}</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="shrink-0 text-fg-secondary">
           <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
 
       {open && (
         <div
-          className="absolute left-0 top-full z-50 mt-1 w-[240px] overflow-hidden rounded-menu border border-hairline bg-surface-1 py-1.5"
+          className="absolute left-0 top-full z-50 mt-1 max-h-[60dvh] w-[min(300px,75vw)] overflow-y-auto rounded-menu border border-hairline bg-surface-1 py-1.5"
           style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}
         >
-          {ALL_MODELS.map((m) => (
+          {!models.length && <p className="px-3 py-3 text-sm text-fg-secondary">{loading ? "Fetching available models…" : "Add a valid API key in Settings to load GPT-6 and newer models."}</p>}
+          {models.map((m) => (
             <button
               key={m.id}
               type="button"

@@ -36,7 +36,10 @@ function titleFrom(text: string): string {
 
 /** Fire a persistence call without blocking the UI; log failures. */
 function persist(p: Promise<unknown>): void {
-  p.catch((e) => console.error("Persistence error:", e));
+  p.catch((e) => {
+    if (e instanceof Error && e.name === "AbortError") return;
+    window.dispatchEvent(new CustomEvent("persistence-error", { detail: e instanceof Error ? e.message : "Could not save your chat." }));
+  });
 }
 
 function metaOf(c: Conversation): api.ConversationMeta {
@@ -44,16 +47,15 @@ function metaOf(c: Conversation): api.ConversationMeta {
   return { id, title, model, effort, createdAt, updatedAt };
 }
 
-/** Strip transient base64 (`dataUrl`) from attachments before persistence — the
- *  hosted Cloudinary `url` is what's stored. Keeps `text` (small, inline). */
+/** Strip transient file contents; private R2 URLs are the durable references. */
 function persistableAttachments(
   attachments?: Attachment[],
 ): Attachment[] | undefined {
   if (!attachments?.length) return undefined;
   return attachments.map((a) => {
-    const { dataUrl, ...rest } = a;
+    const { dataUrl, text, ...rest } = a;
     void dataUrl;
-    return rest;
+    return a.url ? rest : { ...rest, text };
   });
 }
 
@@ -64,6 +66,10 @@ function persistableMessage(m: Message): Message {
 }
 
 interface ChatState {
+  reset: () => void;
+  generation: number;
+  defaultModel: ModelId;
+  setDefaultModel: (model: ModelId) => void;
   conversations: Record<string, Conversation>;
   order: string[];
   activeId: string | null;
@@ -129,6 +135,10 @@ function findMessage(
 }
 
 export const useChatStore = create<ChatState>()((set, get) => ({
+  generation: 0,
+  defaultModel: DEFAULT_MODEL,
+  setDefaultModel: (model) => set({ defaultModel: model }),
+  reset: () => set((s) => ({ conversations: {}, order: [], activeId: null, loaded: {}, ready: false, generation: s.generation + 1, defaultModel: DEFAULT_MODEL })),
   conversations: {},
   order: [],
   activeId: null,
@@ -147,7 +157,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   },
 
   newConversation: () => {
-    const c = makeConversation();
+    const c = { ...makeConversation(), model: get().defaultModel };
     set((s) => ({
       conversations: { ...s.conversations, [c.id]: c },
       order: [c.id, ...s.order],
@@ -161,7 +171,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   setActive: (id) => {
     set({ activeId: id });
-    if (!get().loaded[id]) persist(get().loadMessages(id));
   },
 
   remove: (id) => {
@@ -173,12 +182,12 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       return { conversations, order, activeId };
     });
     persist(api.deleteConversation(id));
-    const next = get().activeId;
-    if (next && !get().loaded[next]) persist(get().loadMessages(next));
   },
 
   loadConversations: async () => {
+    const generation = get().generation;
     const metas = await api.fetchConversations();
+    if (generation !== get().generation) return;
     set((s) => {
       const conversations = { ...s.conversations };
       for (const m of metas) {
@@ -197,7 +206,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   },
 
   loadMessages: async (id) => {
+    const generation = get().generation;
     const messages = await api.fetchMessages(id);
+    if (generation !== get().generation) return;
     set((s) => {
       const c = s.conversations[id];
       if (!c) return {};

@@ -1,0 +1,15 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "gpt-harness-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-15",
+  "workers_dev": false,
+  "preview_urls": false,
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "gpt-harness",
+    "database_id": "1c0d1820-b919-41bf-a03e-cec5e9ba8cd0",
+    "migrations_dir": "migrations"
+  }],
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "gpt-harness-files" }]
+}

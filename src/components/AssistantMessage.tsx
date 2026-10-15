@@ -105,12 +105,7 @@ function ExportMenu({
 }
 
 function downloadImage(src: string, index: number) {
-  // For a cross-origin Cloudinary URL, route through the fl_attachment transform
-  // so the browser downloads rather than navigates; data URLs download directly.
-  let href = src;
-  if (/^https?:\/\/res\.cloudinary\.com\//.test(src)) {
-    href = src.replace("/upload/", "/upload/fl_attachment/");
-  }
+  const href = src.startsWith("/api/files/") ? `${src}?download=1` : src;
   const a = document.createElement("a");
   a.href = href;
   a.download = `image-${index + 1}.png`;
@@ -126,7 +121,6 @@ const DOC_LABEL: Record<DocFormat, string> = {
 export function AssistantMessage({ message }: { message: Message }) {
   const [copied, setCopied] = useState(false);
   const [vote, setVote] = useState<"up" | "down" | null>(null);
-  const [pdfBusy, setPdfBusy] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const copy = () => {
@@ -141,39 +135,11 @@ export function AssistantMessage({ message }: { message: Message }) {
     if (html) printHtmlToPdf(html, title);
   };
 
-  // Server-rendered PDF (professional, selectable text + math) for Documents mode.
-  const downloadServerPdf = async () => {
-    setPdfBusy(true);
-    try {
-      const res = await fetch("/api/document", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ markdown: message.content, title }),
-      });
-      if (!res.ok) {
-        // Fall back to the client print path if the server route fails.
-        exportPdf();
-        return;
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${title}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      exportPdf();
-    } finally {
-      setPdfBusy(false);
-    }
-  };
-
   const downloadDocument = () => {
     const fmt = message.docFormat ?? "pdf";
     if (fmt === "markdown") downloadMarkdown(message.content, title);
     else if (fmt === "text") downloadText(message.content, title);
-    else downloadServerPdf();
+    else exportPdf();
   };
 
   const showActions = !message.streaming && !message.error && message.content.length > 0;
@@ -247,25 +213,18 @@ export function AssistantMessage({ message }: { message: Message }) {
           <button
             type="button"
             onClick={downloadDocument}
-            disabled={pdfBusy}
             className="inline-flex items-center gap-2 rounded-lg border border-hairline bg-surface-1 px-4 py-2 text-[14px] font-medium transition-colors hover:bg-surface-2 disabled:opacity-60"
           >
-            {pdfBusy ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="animate-spin">
-                <path d="M12 3a9 9 0 100 18 9 9 0 000-18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="42" strokeDashoffset="10" />
-              </svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            )}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
             Download {DOC_LABEL[message.docFormat ?? "pdf"]}
           </button>
         </div>
       )}
 
       {showActions && (
-        <div className="mt-1 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="mt-1 flex items-center gap-1 transition-opacity md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100">
           <ActionButton label="Copy" onClick={copy}>
             {copied ? (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">

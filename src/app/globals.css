@@ -45,7 +45,15 @@
 
 html,
 body {
+  overflow-x: hidden;
   height: 100%;
+}
+
+button { cursor: pointer; }
+button:disabled { cursor: default; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--color-link); outline-offset: 3px; }
+@media (pointer: coarse) {
+  input, textarea { font-size: 16px; }
 }
 
 body {

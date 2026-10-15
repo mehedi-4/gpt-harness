@@ -97,7 +97,7 @@ export function UserMessage({
       )}
 
       {message.content && (
-        <div className="max-w-[76%] whitespace-pre-wrap rounded-[22px] bg-surface-2 px-[18px] py-2.5 text-[17px] leading-[1.4]">
+        <div className="max-w-[88%] sm:max-w-[76%] whitespace-pre-wrap [overflow-wrap:anywhere] rounded-[22px] bg-surface-2 px-[18px] py-2.5 text-[17px] leading-[1.4]">
           {message.content}
         </div>
       )}
@@ -107,7 +107,7 @@ export function UserMessage({
         aria-label="Edit message"
         onClick={start}
         disabled={editingDisabled}
-        className="flex h-7 w-7 items-center justify-center rounded-md text-fg-secondary opacity-0 transition hover:bg-surface-2 group-hover:opacity-100 disabled:opacity-0"
+        className="flex h-7 w-7 items-center justify-center rounded-md text-fg-secondary transition hover:bg-surface-2 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 disabled:opacity-0"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
           <path d="M12 20h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />

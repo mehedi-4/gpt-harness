@@ -1,8 +1,61 @@
 
-## Getting Started
+# Chat
 
-First, run the development server:
+Live app: [gpt-harness.pages.dev](https://gpt-harness.pages.dev).
+
+Next.js static frontend on Cloudflare Pages, with a private Cloudflare Worker API. D1 stores accounts, hashed sessions, and per-user conversations. A private R2 bucket stores uploaded files and generated images. No MongoDB, Cloudinary, or Node server is needed.
+
+Users create an email/password account, then enter their own OpenAI API key in Settings. Keys remain in account-scoped browser storage and are forwarded to OpenAI only for requests; they are never stored in D1 or R2. Each browser/device needs its own key. The app fetches available models on startup, API-key changes, opening the model menu, and returning to the tab. All GPT-6 or newer text models returned for that key (including minor versions and model variants) and the newest available GPT Image generation appear. Model IDs are never guessed or added without API access.
+
+## Local development
+
+Use Node.js 22.12+ or 24+.
 
 ```bash
-docker compose up --build
+npm ci
+npm run dev
 ```
+
+This applies migrations to local D1, builds `out/`, and starts Pages with the API service binding at `http://localhost:8788`. Local D1/R2 data stays in `.wrangler/state`. No Cloudflare login is required for local development. After editing the frontend, rebuild with `npm run build`; restart `npm run preview` if needed. Worker changes reload automatically.
+
+```bash
+npm run lint
+npm run check:types
+npm test
+npm run build
+```
+
+With the local preview running, `npm run test:smoke` also exercises registration, private history, R2, and logout through the Pages service binding. It creates disposable local accounts only.
+
+Tests run inside Cloudflare's local Workers runtime with actual D1/R2 bindings and mocked OpenAI responses. They cover sign-in, session expiry and logout, rate limits, cross-account isolation, message ordering/editing/deletion, private uploads, model discovery, and streaming. They do not make paid OpenAI calls.
+
+## Deploy to Cloudflare
+
+Authenticate and create the resources once:
+
+```bash
+npx wrangler login
+npx wrangler d1 create gpt-harness
+npx wrangler r2 bucket create gpt-harness-files
+npx wrangler pages project create gpt-harness --production-branch main
+```
+
+Copy the D1 `database_id` from the create output into `worker/wrangler.jsonc`, replacing the current value when deploying to a different database. If you change any resource names, update both Wrangler files and the deployment scripts. R2 must be enabled in the account. Keep the bucket private.
+
+```bash
+npm run deploy
+```
+
+The deployment script validates, tests, builds, applies remote D1 migrations, deploys the API Worker, then deploys Pages (including `functions/api/[[path]].ts`). Pages forwards `/api/*` to the `API` service binding; the browser uses same-origin HttpOnly session cookies. The API Worker has no public workers.dev or preview URL. The Pages deployment command prints the live URL.
+
+If deploying through Pages Git integration, use build command `npm run build`, output directory `out`, and set the `API` service binding to `gpt-harness-api`. Deploy/migrate the Worker first. Deploy previews should use a separate Worker, database, and bucket if they must be isolated from production accounts.
+
+## Existing data and rollback
+
+The previous database had no account ownership. Existing data is not automatically assigned to new users. Before retiring the old services, export and back up the old conversations, messages, and files. Import requires an explicit mapping to verified user IDs and copying binaries into those users' private R2 prefixes. This repository does not connect to or delete the old services.
+
+Keep the previous deployment and storage backups until the new deployment is verified. To roll back, restore the previous deployment and its old service configuration. New D1/R2 data remains intact; it is not automatically copied back. Do not drop the D1 tables or delete the R2 bucket during rollback. Future schema changes should use additional migrations rather than editing the applied initial migration.
+
+Document mode has been removed from the (+) menu. Regular image, PDF, and text attachments still work. Existing document-shaped messages can still render and export through the browser print dialog.
+
+References: [Next.js static export on Pages](https://developers.cloudflare.com/pages/framework-guides/nextjs/deploy-a-static-nextjs-site/), [Pages service bindings](https://developers.cloudflare.com/pages/functions/bindings/), [OpenAI model discovery](https://developers.openai.com/api/reference/resources/models/methods/list).

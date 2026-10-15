@@ -1,4 +1,5 @@
 import type { Message, ModelId, Effort, Attachment, Citation } from "./types";
+import { apiFetch } from "./apiFetch";
 
 export interface StreamHandlers {
   onReasoningDelta: (text: string) => void;
@@ -14,7 +15,8 @@ export interface StreamHandlers {
 type ContentPart =
   | { type: "input_text"; text: string }
   | { type: "input_image"; image_url: string }
-  | { type: "input_file"; filename: string; file_data: string };
+  | { type: "input_file"; filename: string; file_data: string }
+  | { type: "input_file"; filename: string; file_url: string };
 
 interface InputItem {
   role: "user" | "assistant";
@@ -34,8 +36,12 @@ function buildUserContent(
   for (const a of attachments) {
     if (a.kind === "image" && (a.url || a.dataUrl)) {
       parts.push({ type: "input_image", image_url: (a.url ?? a.dataUrl) as string });
+    } else if (a.kind === "pdf" && a.url) {
+      parts.push({ type: "input_file", filename: a.name, file_url: a.url });
     } else if (a.kind === "pdf" && a.dataUrl) {
       parts.push({ type: "input_file", filename: a.name, file_data: a.dataUrl });
+    } else if (a.kind === "text" && a.url) {
+      parts.push({ type: "input_file", filename: a.name, file_url: a.url });
     } else if (a.kind === "text" && a.text != null) {
       textFiles.push(a);
     }
@@ -104,7 +110,7 @@ export async function streamChat(opts: {
 
   let res: Response;
   try {
-    res = await fetch("/api/chat", {
+    res = await apiFetch("/api/chat", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

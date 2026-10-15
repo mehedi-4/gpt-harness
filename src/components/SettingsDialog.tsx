@@ -4,31 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import { useApiKey } from "@/hooks/useApiKey";
 
 export function SettingsDialog({
-  open,
   onClose,
 }: {
-  open: boolean;
   onClose: () => void;
 }) {
   const { apiKey, setApiKey, clearApiKey } = useApiKey();
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(apiKey);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (open) {
-      setDraft(apiKey);
-      setTimeout(() => inputRef.current?.focus(), 0);
-    }
-  }, [open, apiKey]);
-
-  useEffect(() => {
-    if (!open) return;
+    inputRef.current?.focus();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
+  }, [onClose]);
 
   const save = () => {
     setApiKey(draft);
@@ -42,18 +31,22 @@ export function SettingsDialog({
       onMouseDown={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-title"
         className="w-full max-w-md rounded-lg border border-hairline bg-surface-1 p-6"
         style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold">Settings</h2>
+        <h2 id="settings-title" className="text-lg font-semibold">Settings</h2>
         <p className="mt-1 text-[14px] text-fg-secondary">
-          Your OpenAI API key is stored only in this browser and sent directly to
-          OpenAI through a local proxy.
+          Enter your own OpenAI API key. It is saved for your account in this
+          browser and sent through the server to OpenAI. It is never saved to the database.
         </p>
 
-        <label className="mt-5 block text-[14px] font-medium">OpenAI API key</label>
+        <label htmlFor="openai-key" className="mt-5 block text-[14px] font-medium">OpenAI API key</label>
         <input
+          id="openai-key"
           ref={inputRef}
           type="password"
           value={draft}

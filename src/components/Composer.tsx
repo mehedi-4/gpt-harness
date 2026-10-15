@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import type { Effort, Attachment, ImageSize, ImageModelId, DocFormat } from "@/lib/types";
-import { IMAGE_SIZES, imageSizeLabel, IMAGE_MODELS, imageModelName, DOC_FORMATS, docFormatLabel } from "@/lib/models";
+import type { Effort, Attachment, ImageSize, ImageModelId } from "@/lib/types";
+import { IMAGE_SIZES, imageSizeLabel, imageModelName, type ModelDef } from "@/lib/models";
 import { EffortSlider } from "./EffortSlider";
 import { AttachmentChip } from "./AttachmentChip";
 import { PlusMenu } from "./PlusMenu";
@@ -10,9 +10,11 @@ import { PlusMenu } from "./PlusMenu";
 function ImageModelSelector({
   value,
   onChange,
+  models,
 }: {
   value: ImageModelId;
   onChange: (v: ImageModelId) => void;
+  models: ModelDef[];
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -45,10 +47,11 @@ function ImageModelSelector({
       </button>
       {open && (
         <div
-          className="absolute bottom-full left-0 z-50 mb-2 w-[240px] overflow-hidden rounded-menu border border-hairline bg-surface-1 py-1.5"
+          className="fixed inset-x-3 bottom-28 z-50 mb-2 sm:absolute sm:inset-x-auto sm:bottom-full sm:left-0 sm:w-[240px] overflow-hidden rounded-menu border border-hairline bg-surface-1 py-1.5"
           style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}
         >
-          {IMAGE_MODELS.map((m) => (
+          {!models.length && <p className="px-3 py-2 text-sm text-fg-secondary">No image models available for your key.</p>}
+          {models.map((m) => (
             <button
               key={m.id}
               type="button"
@@ -110,7 +113,7 @@ function ImageSizeSelector({
       </button>
       {open && (
         <div
-          className="absolute bottom-full left-0 z-50 mb-2 w-[180px] overflow-hidden rounded-menu border border-hairline bg-surface-1 py-1.5"
+          className="fixed inset-x-3 bottom-28 z-50 mb-2 sm:absolute sm:inset-x-auto sm:bottom-full sm:left-0 sm:w-[180px] overflow-hidden rounded-menu border border-hairline bg-surface-1 py-1.5"
           style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}
         >
           {IMAGE_SIZES.map((s) => (
@@ -126,71 +129,6 @@ function ImageSizeSelector({
               <span className="flex-1">{s.label}</span>
               <span className="text-fg-tertiary">{s.value}</span>
               {value === s.value && (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DocFormatSelector({
-  value,
-  onChange,
-}: {
-  value: DocFormat;
-  onChange: (v: DocFormat) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 rounded-capsule border border-hairline px-3 py-1.5 text-[14px] text-fg-secondary transition-colors hover:bg-surface-2"
-      >
-        <span>{docFormatLabel(value)}</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-      {open && (
-        <div
-          className="absolute bottom-full left-0 z-50 mb-2 w-[180px] overflow-hidden rounded-menu border border-hairline bg-surface-1 py-1.5"
-          style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}
-        >
-          {DOC_FORMATS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              onClick={() => {
-                onChange(f.value);
-                setOpen(false);
-              }}
-              className="flex w-full items-center gap-3 px-3 py-2 text-left text-[14px] transition-colors hover:bg-surface-2"
-            >
-              <span className="flex-1">{f.label}</span>
-              {value === f.value && (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -222,10 +160,8 @@ export function Composer({
   onImageSizeChange,
   imageModel,
   onImageModelChange,
-  docMode,
-  onToggleDocMode,
-  docFormat,
-  onDocFormatChange,
+  imageModels,
+  disabled,
 }: {
   effort: Effort;
   onEffortChange: (e: Effort) => void;
@@ -245,10 +181,8 @@ export function Composer({
   onImageSizeChange: (v: ImageSize) => void;
   imageModel: ImageModelId;
   onImageModelChange: (v: ImageModelId) => void;
-  docMode: boolean;
-  onToggleDocMode: () => void;
-  docFormat: DocFormat;
-  onDocFormatChange: (v: DocFormat) => void;
+  imageModels: ModelDef[];
+  disabled: boolean;
 }) {
   const [text, setText] = useState("");
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -267,13 +201,13 @@ export function Composer({
       return;
     }
     const trimmed = text.trim();
-    if ((!trimmed && attachments.length === 0) || generating) return;
+    if ((!trimmed && attachments.length === 0) || generating || disabled) return;
     onSend(trimmed);
     setText("");
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && !window.matchMedia("(pointer: coarse)").matches) {
       e.preventDefault();
       submit();
     }
@@ -287,7 +221,7 @@ export function Composer({
     }
   };
 
-  const canSend = (text.trim().length > 0 || attachments.length > 0) && !generating;
+  const canSend = (text.trim().length > 0 || attachments.length > 0) && !generating && !disabled;
 
   return (
     <div
@@ -327,21 +261,17 @@ export function Composer({
         placeholder={
           imageMode
             ? "Describe an image…"
-            : docMode
-              ? "Describe the document…"
-              : "Ask ChatGPT"
+            : "Ask ChatGPT"
         }
         className="max-h-60 w-full resize-none bg-transparent px-2 text-[17px] leading-6 outline-none placeholder:text-fg-tertiary"
       />
 
-      <div className="mt-1 flex items-center gap-2">
+      <div className="mt-1 flex flex-wrap items-center gap-2">
         <PlusMenu
           webSearch={webSearch}
           onToggleWebSearch={onToggleWebSearch}
           imageMode={imageMode}
           onToggleImageMode={onToggleImageMode}
-          docMode={docMode}
-          onToggleDocMode={onToggleDocMode}
           onAddPhotosFiles={() => fileRef.current?.click()}
         />
 
@@ -363,26 +293,7 @@ export function Composer({
               </svg>
             </button>
             <ImageSizeSelector value={imageSize} onChange={onImageSizeChange} />
-            <ImageModelSelector value={imageModel} onChange={onImageModelChange} />
-          </>
-        ) : docMode ? (
-          <>
-            <button
-              type="button"
-              onClick={onToggleDocMode}
-              className="flex items-center gap-1.5 rounded-capsule border border-link/40 bg-link/10 px-3 py-1.5 text-[14px] text-link transition-colors hover:bg-link/15"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M14 3v4a1 1 0 001 1h4" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-                <path d="M6 3h8l5 5v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-                <path d="M8 12h8M8 16h5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-              </svg>
-              <span>Documents</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-              </svg>
-            </button>
-            <DocFormatSelector value={docFormat} onChange={onDocFormatChange} />
+            <ImageModelSelector value={imageModel} onChange={onImageModelChange} models={imageModels} />
           </>
         ) : (
           <>

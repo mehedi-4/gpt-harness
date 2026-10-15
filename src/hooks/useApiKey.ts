@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
+import { useAuth } from "@/lib/auth";
 
 const KEY = "openai-api-key";
 const EVENT = "apikey-change";
 
-function read(): string {
+function read(userId?: string): string {
   if (typeof window === "undefined") return "";
-  return window.localStorage.getItem(KEY) ?? "";
+  return userId ? window.localStorage.getItem(`${KEY}:${userId}`) ?? "" : "";
 }
 
 function subscribe(callback: () => void): () => void {
@@ -26,17 +27,21 @@ export function useApiKey(): {
   setApiKey: (value: string) => void;
   clearApiKey: () => void;
 } {
-  const apiKey = useSyncExternalStore(subscribe, read, () => "");
+  const userId = useAuth((s) => s.user?.id);
+  const snapshot = useCallback(() => read(userId), [userId]);
+  const apiKey = useSyncExternalStore(subscribe, snapshot, () => "");
 
   const setApiKey = useCallback((value: string) => {
-    window.localStorage.setItem(KEY, value.trim());
+    if (!userId) return;
+    window.localStorage.setItem(`${KEY}:${userId}`, value.trim());
     window.dispatchEvent(new Event(EVENT));
-  }, []);
+  }, [userId]);
 
   const clearApiKey = useCallback(() => {
-    window.localStorage.removeItem(KEY);
+    if (!userId) return;
+    window.localStorage.removeItem(`${KEY}:${userId}`);
     window.dispatchEvent(new Event(EVENT));
-  }, []);
+  }, [userId]);
 
   return { apiKey, setApiKey, clearApiKey };
 }
