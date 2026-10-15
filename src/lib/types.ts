@@ -43,6 +43,11 @@ export type ImageSize = "1024x1024" | "1024x1536" | "1536x1024";
 /** Selectable image-generation model. */
 export type ImageModelId = string;
 
+export interface ImageRequest {
+  model: ImageModelId;
+  size: ImageSize;
+}
+
 /** Output format for a generated document. */
 export type DocFormat = "pdf" | "markdown" | "text";
 
@@ -50,6 +55,8 @@ export interface Message {
   id: string;
   role: Role;
   content: string;
+  /** Keeps a regenerated reply next to its prompt without removing later turns. */
+  replyToId?: string;
   attachments?: Attachment[];
   /** Streamed reasoning-summary text (assistant only). */
   reasoning?: string;
@@ -66,7 +73,9 @@ export interface Message {
   usedWebSearch?: boolean;
   /** Image-generation turn (assistant only): render images instead of markdown. */
   isImage?: boolean;
-  /** Generated image data URLs (assistant only). */
+  /** Preserve image routing and generation settings when editing a prompt. */
+  imageRequest?: ImageRequest;
+  /** Private R2 URLs of generated images (assistant only). */
   images?: string[];
   /** Document-generation turn (assistant only): render markdown + download UI. */
   isDocument?: boolean;

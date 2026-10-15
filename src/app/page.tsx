@@ -5,8 +5,9 @@ import { useChatStore } from "@/lib/store";
 import { useApiKey } from "@/hooks/useApiKey";
 import { streamChat } from "@/lib/streamChat";
 import { generateImage } from "@/lib/generateImage";
+import { buildImageContext, imageRequestForEdit } from "@/lib/imageContext";
 import { readFiles, uploadAttachments } from "@/lib/files";
-import type { Effort, ModelId, Attachment, ImageSize, ImageModelId } from "@/lib/types";
+import type { Effort, ModelId, Attachment, ImageSize, ImageModelId, ImageRequest, Message } from "@/lib/types";
 import { DEFAULT_MODEL, DEFAULT_EFFORT, DEFAULT_IMAGE_SIZE, DEFAULT_IMAGE_MODEL } from "@/lib/models";
 import { Sidebar } from "@/components/Sidebar";
 import { ModelSelector } from "@/components/ModelSelector";
@@ -16,6 +17,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { AuthGate } from "@/components/AuthGate";
 import { useModelCatalog } from "@/hooks/useModelCatalog";
+import { Presence } from "@/components/Presence";
 
 export default function Home() {
   return <AuthGate><Chat /></AuthGate>;
@@ -26,7 +28,7 @@ function Chat() {
   const [generating, setGenerating] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [webSearch, setWebSearch] = useState(false);
-  const [imageMode, setImageMode] = useState(false);
+  const [imageModeChoice, setImageModeChoice] = useState<{ id: string | null; enabled: boolean } | null>(null);
   const [imageSize, setImageSize] = useState<ImageSize>(DEFAULT_IMAGE_SIZE);
   const [selectedImageModel, setImageModel] = useState<ImageModelId>(DEFAULT_IMAGE_MODEL);
   const [dragging, setDragging] = useState(false);
@@ -36,6 +38,7 @@ function Chat() {
   const [historyError, setHistoryError] = useState("");
   const [historyRevision, setHistoryRevision] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
+  const assistantRef = useRef<string | null>(null);
   const dragDepth = useRef(0);
 
   const { apiKey } = useApiKey();
@@ -45,6 +48,9 @@ function Chat() {
     s.activeId ? s.conversations[s.activeId] ?? null : null,
   );
   const activeId = useChatStore((s) => s.activeId);
+  const lastTurn = active?.messages[active.messages.length - 1];
+  const imageMode = imageModeChoice?.id === activeId ? imageModeChoice.enabled : !!(lastTurn?.isImage || lastTurn?.imageRequest);
+  const toggleImageMode = () => setImageModeChoice({ id: activeId, enabled: !imageMode });
   const ready = useChatStore((s) => s.ready);
   const loaded = useChatStore((s) => activeId ? !!s.loaded[activeId] : true);
   const store = useChatStore;
@@ -62,6 +68,7 @@ function Chat() {
     setSidebarOpen(false);
     if (window.matchMedia("(min-width: 768px)").matches) localStorage.setItem("sidebar-open", "false");
   }, []);
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const afterNavigate = useCallback(() => {
     if (window.matchMedia("(max-width: 767px)").matches) setSidebarOpen(false);
   }, []);
@@ -130,10 +137,12 @@ function Chat() {
       userAttachments: Attachment[],
       history: Parameters<typeof streamChat>[0]["history"],
       useWebSearch: boolean,
+      replyToId?: string,
     ) => {
       const conv = store.getState().activeConversation();
       if (!conv) return;
-      const assistant = store.getState().beginAssistant();
+      const assistant = store.getState().beginAssistant({ replyToId });
+      assistantRef.current = assistant.id;
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -172,16 +181,20 @@ function Chat() {
         },
       });
 
-      abortRef.current = null;
-      setGenerating(false);
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        assistantRef.current = null;
+        setGenerating(false);
+      }
     },
     [apiKey, store],
   );
 
-  /** Runs a single-shot image-generation turn (no chat history). */
+  /** Image turns retain their settings and reuse earlier private images. */
   const runImage = useCallback(
-    async (prompt: string, samples: string[]) => {
-      const assistant = store.getState().beginAssistant({ isImage: true });
+    async (prompt: string, attachments: Attachment[], history: Message[], replyToId: string, settings: ImageRequest) => {
+      const assistant = store.getState().beginAssistant({ isImage: true, replyToId, imageRequest: settings });
+      assistantRef.current = assistant.id;
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -189,13 +202,12 @@ function Chat() {
 
       const result = await generateImage({
         apiKey,
-        prompt,
-        size: imageSize,
-        model: imageModel,
-        samples,
+        ...buildImageContext(prompt, attachments, history),
+        ...settings,
         signal: controller.signal,
       });
 
+      if (controller.signal.aborted) return;
       if ("error" in result) {
         store.getState().setError(assistant.id, result.error);
       } else {
@@ -204,9 +216,10 @@ function Chat() {
       }
 
       abortRef.current = null;
+      assistantRef.current = null;
       setGenerating(false);
     },
-    [apiKey, imageSize, imageModel, store],
+    [apiKey, store],
   );
 
   const handleSend = useCallback(
@@ -219,38 +232,41 @@ function Chat() {
 
       const sent = attachments;
       setAttachments([]);
-      s.addUserMessage(text, sent);
+      const settings = imageMode ? { model: imageModel, size: imageSize } : undefined;
+      const prompt = s.addUserMessage(text, sent, settings);
 
       if (imageMode) {
-        const samples = sent
-          .filter((a) => a.kind === "image" && (a.url || a.dataUrl))
-          .map((a) => (a.url ?? a.dataUrl) as string);
-        await runImage(text, samples);
+        await runImage(text, sent, conv.messages, prompt.id, settings!);
         return;
       }
 
       const history = conv.messages;
-      await runStream(text, sent, history, webSearch);
+      await runStream(text, sent, history, webSearch, prompt.id);
     },
-    [attachments, imageMode, webSearch, runImage, runStream, store, generating, uploading, loaded, ready, catalog.models],
+    [attachments, imageMode, imageModel, imageSize, webSearch, runImage, runStream, store, generating, uploading, loaded, ready, catalog.models],
   );
 
-  // Edit a prior user message: rewrite it, drop everything after, re-run.
+  // Regenerate only this prompt's reply; every later turn stays in place.
   const handleEditUserMessage = useCallback(
     async (messageId: string, newText: string) => {
       const s = store.getState();
       const conv = s.activeConversation();
-      if (!conv) return;
+      if (!conv || generating || !apiKey) return;
       const idx = conv.messages.findIndex((m) => m.id === messageId);
       if (idx < 0) return;
 
       const original = conv.messages[idx];
       const history = conv.messages.slice(0, idx);
+      const settings = imageRequestForEdit(conv.messages, idx, { model: imageModel, size: imageSize });
+      if (settings && !settings.model) { setToast("Choose an image model before editing this prompt."); return; }
       s.editUserMessage(messageId, newText);
-      s.truncateAfter(messageId, false); // keep the edited msg, drop replies after
-      await runStream(newText, original.attachments ?? [], history, webSearch);
+      if (settings) {
+        await runImage(newText, original.attachments ?? [], history, messageId, settings);
+        return;
+      }
+      await runStream(newText, original.attachments ?? [], history, webSearch, messageId);
     },
-    [runStream, store, webSearch],
+    [runStream, runImage, imageModel, imageSize, store, webSearch, generating, apiKey],
   );
 
   const handleStop = useCallback(() => {
@@ -258,10 +274,12 @@ function Chat() {
     abortRef.current = null;
     setGenerating(false);
     const conv = store.getState().activeConversation();
-    const last = conv?.messages[conv.messages.length - 1];
+    const last = assistantRef.current ? conv?.messages.find((message) => message.id === assistantRef.current) : conv?.messages[conv.messages.length - 1];
     if (last && last.role === "assistant" && last.streaming) {
-      store.getState().finalizeAssistant(last.id, last.thoughtSeconds ?? 1);
+      if (last.isImage) store.getState().setError(last.id, "Image generation stopped.");
+      else store.getState().finalizeAssistant(last.id, last.thoughtSeconds ?? 1);
     }
+    assistantRef.current = null;
   }, [store]);
 
   // Drag-and-drop file handling over the whole main pane.
@@ -293,7 +311,7 @@ function Chat() {
 
   return (
     <div className="flex h-dvh overflow-hidden">
-      {sidebarOpen && <Sidebar onOpenSettings={() => { setSettingsOpen(true); afterNavigate(); }} onClose={closeSidebar} onNavigate={afterNavigate} disabled={generating || !!uploading || !ready || !loaded} />}
+      <Presence show={sidebarOpen} kind="sidebar"><Sidebar onOpenSettings={() => { setSettingsOpen(true); afterNavigate(); }} onClose={closeSidebar} onNavigate={afterNavigate} disabled={generating || !!uploading || !ready || !loaded} /></Presence>
 
       <main
         className="relative flex min-w-0 flex-1 flex-col"
@@ -349,7 +367,7 @@ function Chat() {
               webSearch={webSearch}
               onToggleWebSearch={() => setWebSearch((v) => !v)}
               imageMode={imageMode}
-              onToggleImageMode={() => setImageMode((v) => !v)}
+              onToggleImageMode={toggleImageMode}
               imageSize={imageSize}
               onImageSizeChange={setImageSize}
               imageModel={imageModel}
@@ -381,7 +399,7 @@ function Chat() {
         )}
       </main>
 
-      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
+      <Presence show={settingsOpen} kind="modal"><SettingsDialog onClose={closeSettings} /></Presence>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import type { Conversation } from "@/lib/types";
 import { UserMessage } from "./UserMessage";
 import { AssistantMessage } from "./AssistantMessage";
@@ -14,41 +14,43 @@ export function MessageList({
   onEditUserMessage: (id: string, text: string) => void;
   editingDisabled: boolean;
 }) {
-  const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const following = useRef(true);
 
-  // Autoscroll to the bottom on new content only if the user is already near it.
-  const lastMsg = conversation.messages[conversation.messages.length - 1];
-  const streamingLen = lastMsg?.content.length ?? 0;
-
-  useEffect(() => {
+  // Follow actual rendered height, including streamed Markdown and loaded images.
+  // Scrolling up opts out until the reader returns near the bottom.
+  useLayoutEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
-    const nearBottom =
-      el.scrollHeight - el.scrollTop - el.clientHeight < 160;
-    if (nearBottom) {
-      // Streaming deltas fire rapidly; smooth-scroll queued per delta compounds
-      // into jank, so jump instantly while content is growing.
-      bottomRef.current?.scrollIntoView({ behavior: "auto" });
-    }
-  }, [conversation.messages.length, streamingLen]);
+    const content = contentRef.current;
+    if (!el || !content) return;
+    following.current = true;
+    el.scrollTop = el.scrollHeight;
+    const resize = new ResizeObserver(() => {
+      if (following.current) el.scrollTop = el.scrollHeight;
+    });
+    resize.observe(content);
+    return () => resize.disconnect();
+  }, [conversation.id]);
 
   return (
-    <div ref={containerRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6">
+    <div ref={containerRef} onScroll={(event) => {
+      const el = event.currentTarget;
+      following.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+    }} className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain [overflow-anchor:none]">
+      <div ref={contentRef} className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6">
         {conversation.messages.map((m) =>
-          m.role === "user" ? (
+          <div key={m.id} className="ui-message min-w-0" data-message-id={m.id}>{m.role === "user" ? (
             <UserMessage
-              key={m.id}
               message={m}
               onEdit={onEditUserMessage}
               editingDisabled={editingDisabled}
             />
           ) : (
-            <AssistantMessage key={m.id} message={m} />
-          ),
+            <AssistantMessage message={m} />
+          )}</div>,
         )}
-        <div ref={bottomRef} className="h-4" />
+        <div className="h-4" />
       </div>
     </div>
   );

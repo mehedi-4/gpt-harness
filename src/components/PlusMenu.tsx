@@ -1,5 +1,7 @@
 "use client";
 
+import { Presence } from "./Presence";
+
 import { useEffect, useRef, useState } from "react";
 
 function PhotoIcon() {
@@ -74,7 +76,7 @@ export function PlusMenu({
         </svg>
       </button>
 
-      {open && (
+      <Presence show={open}>
         <div
           className="absolute bottom-full left-0 z-50 mb-2 w-[260px] overflow-hidden rounded-menu border border-hairline bg-surface-1 py-1.5"
           style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}
@@ -126,7 +128,7 @@ export function PlusMenu({
           </button>
 
         </div>
-      )}
+      </Presence>
     </div>
   );
 }

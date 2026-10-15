@@ -8,6 +8,7 @@ import type {
   Citation,
   SearchStatus,
   DocFormat,
+  ImageRequest,
 } from "./types";
 import { DEFAULT_MODEL, DEFAULT_EFFORT } from "./models";
 import * as api from "./chatApi";
@@ -91,12 +92,14 @@ interface ChatState {
   setModel: (model: ModelId) => void;
   setEffort: (effort: Effort) => void;
 
-  addUserMessage: (text: string, attachments?: Attachment[]) => Message;
+  addUserMessage: (text: string, attachments?: Attachment[], imageRequest?: ImageRequest) => Message;
   editUserMessage: (id: string, text: string) => void;
   /** Drops every message after (and including) the given id. */
   truncateAfter: (id: string, inclusive: boolean) => void;
   beginAssistant: (init?: {
+    replyToId?: string;
     isImage?: boolean;
+    imageRequest?: ImageRequest;
     isDocument?: boolean;
     docFormat?: DocFormat;
   }) => Message;
@@ -231,12 +234,13 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     persist(api.patchConversation(id, { effort }));
   },
 
-  addUserMessage: (text, attachments) => {
+  addUserMessage: (text, attachments, imageRequest) => {
     const id = get().ensureActive();
     const msg: Message = {
       id: uid(),
       role: "user",
       content: text,
+      imageRequest,
       attachments: attachments && attachments.length ? attachments : undefined,
       createdAt: Date.now(),
     };
@@ -284,18 +288,30 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   beginAssistant: (init) => {
     const id = get().ensureActive();
+    const conversation = get().conversations[id];
+    const promptIndex = init?.replyToId ? conversation.messages.findIndex((m) => m.id === init.replyToId && m.role === "user") : -1;
+    const next = promptIndex >= 0 ? conversation.messages[promptIndex + 1] : undefined;
+    const previous = next?.role === "assistant" ? next : undefined;
     const msg: Message = {
-      id: uid(),
+      id: previous?.id ?? uid(),
       role: "assistant",
       content: "",
+      replyToId: init?.replyToId,
       reasoning: "",
       streaming: true,
       isImage: init?.isImage || undefined,
+      imageRequest: init?.imageRequest,
       isDocument: init?.isDocument || undefined,
       docFormat: init?.docFormat,
-      createdAt: Date.now(),
+      createdAt: previous?.createdAt ?? Date.now(),
     };
-    set((s) => touch(s, id, (c) => ({ ...c, messages: [...c.messages, msg] })));
+    set((s) => touch(s, id, (c) => {
+      const messages = [...c.messages];
+      if (previous) messages[promptIndex + 1] = msg;
+      else if (promptIndex >= 0) messages.splice(promptIndex + 1, 0, msg);
+      else messages.push(msg);
+      return { ...c, messages };
+    }));
     // Not persisted yet — the row is written once when streaming finalizes.
     return msg;
   },

@@ -6,7 +6,7 @@ export interface ModelDef {
   name: string;
 }
 
-export const DEFAULT_MODEL: ModelId = "gpt-6-luna";
+export const DEFAULT_MODEL: ModelId = "gpt-6.1-sol";
 
 export function modelName(id: ModelId): string {
   return id.replace(/^gpt-/, "GPT-").replace(/-([a-z])/g, (_, c: string) => ` ${c.toUpperCase()}`);

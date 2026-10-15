@@ -1,13 +1,24 @@
 "use client";
 
-import { memo, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { Children, isValidElement, memo, useState, type ReactNode } from "react";
+import { Streamdown, defaultRehypePlugins, defaultRemarkPlugins, type Components } from "streamdown";
 import remarkMath from "remark-math";
 import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
-import type { Components } from "react-markdown";
+import type { PluggableList } from "unified";
 import "katex/dist/katex.min.css";
+
+const remarkPlugins: PluggableList = [...Object.values(defaultRemarkPlugins), remarkMath];
+const livePlugins: PluggableList = [...Object.values(defaultRehypePlugins), [rehypeKatex, { throwOnError: false, strict: false }]];
+const completePlugins: PluggableList = [...livePlugins, rehypeHighlight];
+const textAnimation = { animation: "fadeIn", duration: 180, easing: "ease-out", sep: "word", stagger: 12, maxBacklogMs: 180 } as const;
+
+function nodeText(children: ReactNode): string {
+  return Children.toArray(children).map((child) => {
+    if (typeof child === "string" || typeof child === "number") return String(child);
+    return isValidElement<{ children?: ReactNode }>(child) ? nodeText(child.props.children) : "";
+  }).join("");
+}
 
 function CodeBlock({
   className,
@@ -18,7 +29,7 @@ function CodeBlock({
 }) {
   const [copied, setCopied] = useState(false);
   const lang = /language-(\w+)/.exec(className ?? "")?.[1] ?? "";
-  const text = String(children ?? "");
+  const text = nodeText(children);
 
   const copy = () => {
     navigator.clipboard.writeText(text.replace(/\n$/, ""));
@@ -80,6 +91,15 @@ function normalizeMath(input: string): string {
 }
 
 const components: Components = {
+  strong({ children }) {
+    return <strong className="font-semibold">{children}</strong>;
+  },
+  em({ children }) {
+    return <em>{children}</em>;
+  },
+  pre({ children }) {
+    return <>{children}</>;
+  },
   code({ className, children, node, ...props }) {
     const isBlock = node?.position?.start.line !== node?.position?.end.line ||
       /language-/.test(className ?? "");
@@ -152,28 +172,20 @@ const components: Components = {
 };
 
 function MarkdownImpl({ content, streaming }: { content: string; streaming?: boolean }) {
-  // While a message is streaming, re-parsing the whole document (markdown + KaTeX
-  // + highlight.js) on every token is O(n²) and can crash the renderer on long
-  // answers ("Aw, Snap!"). So during streaming we render a cheap plain-text path
-  // (whitespace preserved, no parsing) and only run the full ReactMarkdown +
-  // math + syntax highlight once streaming has finished.
-  if (streaming) {
-    return (
-      <div className="whitespace-pre-wrap [overflow-wrap:anywhere] leading-[1.47] text-[17px]">
-        {content}
-      </div>
-    );
-  }
-
   return (
     <div className="min-w-0 [overflow-wrap:anywhere] leading-[1.47] text-[17px]">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeHighlight, [rehypeKatex, { throwOnError: false, strict: false }]]}
+      <Streamdown
+        className="chat-markdown"
+        remarkPlugins={remarkPlugins}
+        rehypePlugins={streaming ? livePlugins : completePlugins}
         components={components}
+        isAnimating={!!streaming}
+        animated={textAnimation}
+        caret={streaming && content ? "block" : undefined}
+        controls={false}
       >
         {normalizeMath(content)}
-      </ReactMarkdown>
+      </Streamdown>
     </div>
   );
 }

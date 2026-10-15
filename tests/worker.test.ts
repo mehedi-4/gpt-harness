@@ -109,6 +109,29 @@ describe("accounts and isolation", () => {
     await call("conversations/chat1", "DELETE", undefined, cookie);
     expect((await env.DB.prepare("SELECT COUNT(*) AS n FROM messages").first<{ n: number }>())?.n).toBe(0);
   });
+
+  it("replaces an earlier reply without losing later turns and restores missing replies beside their prompts", async () => {
+    const { cookie } = await register();
+    await create(cookie);
+    const original = Array.from({ length: 10 }, (_, i) => ({ id: `m${i}`, role: i % 2 ? "assistant" : "user", content: `Turn ${i}`, createdAt: i }));
+    for (const message of original) expect((await call("conversations/chat1/messages", "POST", message, cookie)).status).toBe(201);
+    const edited = { ...original[2], content: "Edited second prompt" };
+    const regenerated = { ...original[3], content: "Regenerated reply", replyToId: edited.id };
+    expect((await call(`conversations/chat1/messages/${edited.id}`, "PATCH", edited, cookie)).status).toBe(200);
+    expect((await call(`conversations/chat1/messages/${regenerated.id}`, "PATCH", regenerated, cookie)).status).toBe(200);
+    const restored = await (await call("conversations/chat1/messages", "GET", undefined, cookie)).json<{ messages: typeof original }>();
+    expect(restored.messages).toEqual([...original.slice(0, 2), edited, regenerated, ...original.slice(4)]);
+
+    await create(cookie, "missing");
+    for (const message of [original[0], original[2], original[3]]) await call("conversations/missing/messages", "POST", message, cookie);
+    const recovered = { ...original[1], replyToId: original[0].id };
+    await call(`conversations/missing/messages/${recovered.id}`, "PATCH", recovered, cookie);
+    const repaired = await (await call("conversations/missing/messages", "GET", undefined, cookie)).json<{ messages: typeof original }>();
+    expect(repaired.messages.map((m) => m.id)).toEqual(["m0", "m1", "m2", "m3"]);
+    // A reply cannot point at another conversation or another assistant.
+    expect((await call("conversations/missing/messages/bad", "PATCH", { ...recovered, id: "bad", replyToId: "m4" }, cookie)).status).toBe(400);
+    expect((await call("conversations/missing/messages/bad", "PATCH", { ...recovered, id: "bad", replyToId: "m3" }, cookie)).status).toBe(400);
+  });
 });
 
 describe("private R2 and OpenAI", () => {
@@ -202,5 +225,29 @@ describe("private R2 and OpenAI", () => {
     const stored = await call(images[0].slice(5), "GET", undefined, cookie);
     expect(stored.status).toBe(200);
     await stored.arrayBuffer();
+  });
+
+  it("edits earlier private images and keeps saved image settings after reload", async () => {
+    const owner = await register(), other = await register("other@example.com");
+    await create(owner.cookie);
+    const first = await (await call("upload", "POST", { dataUrl: png }, owner.cookie)).json<{ url: string }>();
+    const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({ data: [{ b64_json: png.split(",")[1] }] }));
+    const settings = { model: "gpt-image-2.5-flare", size: "1024x1536" };
+    const edited = await call("image", "POST", { ...settings, prompt: "Keep the house; add a garden", samples: [first.url] }, owner.cookie, { "x-openai-key": "user-key" });
+    expect(edited.status).toBe(200);
+    expect(String(spy.mock.calls[0][0])).toContain("images/edits");
+    const form = spy.mock.calls[0][1]?.body as FormData;
+    expect(form.get("model")).toBe(settings.model);
+    expect(form.get("size")).toBe(settings.size);
+    expect((form.get("image[]") as Blob).type).toBe("image/png");
+    const { images } = await edited.json<{ images: string[] }>();
+    await call("conversations/chat1/messages", "POST", { id: "image-prompt", role: "user", content: "Add a garden", imageRequest: settings, createdAt: 1 }, owner.cookie);
+    await call("conversations/chat1/messages", "POST", { id: "image-reply", role: "assistant", content: "", isImage: true, replyToId: "image-prompt", imageRequest: settings, images, createdAt: 2 }, owner.cookie);
+    const restored = await (await call("conversations/chat1/messages", "GET", undefined, owner.cookie)).json<{ messages: { imageRequest: typeof settings; images?: string[] }[] }>();
+    expect(restored.messages[0].imageRequest).toEqual(settings);
+    expect(restored.messages[1].images).toEqual(images);
+    spy.mockClear();
+    expect((await call("image", "POST", { ...settings, prompt: "Edit", samples: [first.url] }, other.cookie, { "x-openai-key": "user-key" })).status).toBe(400);
+    expect(spy).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,5 @@
 import { EFFORT_STOPS, IMAGE_SIZES } from "../../src/lib/models";
+import { MAX_IMAGE_REFERENCES } from "../../src/lib/imageContext";
 import { isChatModel, newestChatModels, type AvailableModel } from "../../src/lib/modelDiscovery";
 import type { Env } from "./env";
 import { HttpError, json, readJson, requiredString } from "./http";
@@ -97,7 +98,7 @@ export async function image(request: Request, env: Env, userId: string): Promise
   if (typeof body.model !== "string" || !/^gpt-image-\d[\w.-]*$/.test(body.model)) throw new HttpError(400, "Choose an image model.");
   if (!IMAGE_SIZES.some((s) => s.value === body.size)) throw new HttpError(400, "Invalid image size.");
   const samples = body.samples ?? [];
-  if (!Array.isArray(samples) || samples.length > 4 || samples.some((s) => typeof s !== "string")) throw new HttpError(400, "Use up to four reference images.");
+  if (!Array.isArray(samples) || samples.length > MAX_IMAGE_REFERENCES || samples.some((s) => typeof s !== "string")) throw new HttpError(400, "Use up to sixteen reference images.");
   let response: Response;
   if (samples.length) {
     const form = new FormData();

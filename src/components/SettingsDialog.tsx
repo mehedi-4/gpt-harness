@@ -11,12 +11,22 @@ export function SettingsDialog({
   const { apiKey, setApiKey, clearApiKey } = useApiKey();
   const [draft, setDraft] = useState(apiKey);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
     inputRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key !== "Tab") return;
+      const controls = dialogRef.current?.querySelectorAll<HTMLElement>("button:not(:disabled), input");
+      if (!controls?.length) return;
+      const first = controls[0], last = controls[controls.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => { document.removeEventListener("keydown", onKey); if (previous?.isConnected) previous.focus(); };
   }, [onClose]);
 
   const save = () => {
@@ -32,6 +42,7 @@ export function SettingsDialog({
     >
       <div
         role="dialog"
+        ref={dialogRef}
         aria-modal="true"
         aria-labelledby="settings-title"
         className="w-full max-w-md rounded-lg border border-hairline bg-surface-1 p-6"

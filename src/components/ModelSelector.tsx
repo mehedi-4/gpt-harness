@@ -1,5 +1,7 @@
 "use client";
 
+import { Presence } from "./Presence";
+
 import { useEffect, useRef, useState } from "react";
 import type { ModelId } from "@/lib/types";
 import { modelName, type ModelDef } from "@/lib/models";
@@ -55,7 +57,7 @@ export function ModelSelector({
         </svg>
       </button>
 
-      {open && (
+      <Presence show={open}>
         <div
           className="absolute left-0 top-full z-50 mt-1 max-h-[60dvh] w-[min(300px,75vw)] overflow-y-auto rounded-menu border border-hairline bg-surface-1 py-1.5"
           style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}
@@ -80,7 +82,7 @@ export function ModelSelector({
             </button>
           ))}
         </div>
-      )}
+      </Presence>
     </div>
   );
 }

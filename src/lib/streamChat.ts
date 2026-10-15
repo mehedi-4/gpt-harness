@@ -130,13 +130,14 @@ export async function streamChat(opts: {
     return;
   }
 
-  await consumeSse(res, handlers);
+  await consumeSse(res, handlers, signal);
 }
 
 /** Shared SSE reader/parser. */
 async function consumeSse(
   res: Response,
   handlers: StreamHandlers,
+  signal: AbortSignal,
 ): Promise<void> {
   if (!res.ok || !res.body) {
     const raw = res.body ? await res.text() : "";
@@ -148,107 +149,118 @@ async function consumeSse(
   const decoder = new TextDecoder();
   let buffer = "";
 
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      const frames = buffer.split("\n\n");
-      buffer = frames.pop() ?? "";
-
-      for (const frame of frames) {
-        let eventType = "";
-        let dataStr = "";
-        for (const line of frame.split("\n")) {
-          if (line.startsWith("event:")) eventType = line.slice(6).trim();
-          else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
+  const dispatch = (frame: string): boolean => {
+    let eventType = "";
+    const data: string[] = [];
+    for (const line of frame.split(/\r\n|\n|\r/)) {
+      if (line.startsWith("event:")) eventType = line.slice(6).trim();
+      else if (line.startsWith("data:")) data.push(line.slice(5).replace(/^ /, ""));
+    }
+    const dataStr = data.join("\n");
+    if (!dataStr) return false;
+    if (dataStr === "[DONE]") { handlers.onDone(); return true; }
+    let payload: Record<string, unknown>;
+    try { payload = JSON.parse(dataStr); }
+    catch { return false; }
+    const type = (payload.type as string) || eventType;
+    switch (type) {
+      case "response.reasoning_summary_text.delta":
+        handlers.onReasoningDelta((payload.delta as string) ?? "");
+        break;
+      case "response.output_text.delta":
+        handlers.onAnswerDelta((payload.delta as string) ?? "");
+        break;
+      case "response.web_search_call.in_progress":
+      case "response.web_search_call.searching":
+        handlers.onSearchStart();
+        break;
+      case "response.web_search_call.completed":
+        handlers.onSearchDone();
+        break;
+      case "response.output_text.annotation.added": {
+        const ann = payload.annotation as
+          | { type?: string; url?: string; title?: string }
+          | undefined;
+        if (ann?.type === "url_citation" && ann.url) {
+          handlers.onCitation({ url: ann.url, title: ann.title || ann.url });
         }
-        if (!dataStr || dataStr === "[DONE]") continue;
-
-        let payload: Record<string, unknown>;
-        try {
-          payload = JSON.parse(dataStr);
-        } catch {
-          continue;
+        break;
+      }
+      case "response.output_item.done": {
+        const item = payload.item as
+          | {
+              type?: string;
+              action?: { type?: string; query?: string };
+              content?: Array<{
+                annotations?: Array<{ type?: string; url?: string; title?: string }>;
+              }>;
+            }
+          | undefined;
+        // A finished web_search_call carries the query it ran under `action`.
+        if (item?.type === "web_search_call" && item.action?.query) {
+          handlers.onSearchQuery(item.action.query);
         }
-
-        const type = (payload.type as string) || eventType;
-
-        switch (type) {
-          case "response.reasoning_summary_text.delta":
-            handlers.onReasoningDelta((payload.delta as string) ?? "");
-            break;
-          case "response.output_text.delta":
-            handlers.onAnswerDelta((payload.delta as string) ?? "");
-            break;
-          case "response.web_search_call.in_progress":
-          case "response.web_search_call.searching":
-            handlers.onSearchStart();
-            break;
-          case "response.web_search_call.completed":
-            handlers.onSearchDone();
-            break;
-          case "response.output_text.annotation.added": {
-            const ann = payload.annotation as
-              | { type?: string; url?: string; title?: string }
-              | undefined;
-            if (ann?.type === "url_citation" && ann.url) {
-              handlers.onCitation({ url: ann.url, title: ann.title || ann.url });
-            }
-            break;
-          }
-          case "response.output_item.done": {
-            const item = payload.item as
-              | {
-                  type?: string;
-                  action?: { type?: string; query?: string };
-                  content?: Array<{
-                    annotations?: Array<{ type?: string; url?: string; title?: string }>;
-                  }>;
-                }
-              | undefined;
-            // A finished web_search_call carries the query it ran under `action`.
-            if (item?.type === "web_search_call" && item.action?.query) {
-              handlers.onSearchQuery(item.action.query);
-            }
-            // Fallback: some payloads only carry citations on the finished
-            // message item's content annotations.
-            if (item?.type === "message" && item.content) {
-              for (const part of item.content) {
-                for (const ann of part.annotations ?? []) {
-                  if (ann.type === "url_citation" && ann.url) {
-                    handlers.onCitation({ url: ann.url, title: ann.title || ann.url });
-                  }
-                }
+        // Fallback: some payloads only carry citations on the finished
+        // message item's content annotations.
+        if (item?.type === "message" && item.content) {
+          for (const part of item.content) {
+            for (const ann of part.annotations ?? []) {
+              if (ann.type === "url_citation" && ann.url) {
+                handlers.onCitation({ url: ann.url, title: ann.title || ann.url });
               }
             }
-            break;
           }
-          case "response.completed":
-            handlers.onDone();
-            return;
-          case "error":
-          case "response.failed": {
-            const errObj = (payload.error ?? payload.response) as
-              | { error?: { message?: string } }
-              | { message?: string }
-              | undefined;
-            const message =
-              (errObj as { message?: string })?.message ??
-              (errObj as { error?: { message?: string } })?.error?.message ??
-              "The model stopped unexpectedly.";
-            handlers.onError(message);
-            return;
-          }
-          default:
-            break;
         }
+        break;
+      }
+      case "response.completed":
+        handlers.onDone();
+        return true;
+      case "error":
+      case "response.failed": {
+        const errObj = (payload.error ?? payload.response ?? payload) as
+          | { error?: { message?: string } }
+          | { message?: string }
+          | undefined;
+        const message =
+          (errObj as { message?: string })?.message ??
+          (errObj as { error?: { message?: string } })?.error?.message ??
+          "The model stopped unexpectedly.";
+        handlers.onError(message);
+        return true;
+      }
+      default:
+        break;
+    }
+    return false;
+  };
+
+  const onAbort = () => { void reader.cancel().catch(() => {}); };
+  signal.addEventListener("abort", onAbort, { once: true });
+  try {
+    while (!signal.aborted) {
+      const { value, done } = await reader.read();
+      if (signal.aborted) return;
+      buffer += decoder.decode(value, { stream: !done });
+      // Delimiters and UTF-8 characters may both straddle network chunks.
+      let boundary: RegExpExecArray | null;
+      while ((boundary = /\r\n\r\n|\n\n|\r\r/.exec(buffer))) {
+        const frame = buffer.slice(0, boundary.index);
+        buffer = buffer.slice(boundary.index + boundary[0].length);
+        if (dispatch(frame)) return;
+      }
+      if (done) {
+        if (buffer.trim() && dispatch(buffer)) return;
+        handlers.onDone();
+        return;
       }
     }
-    handlers.onDone();
   } catch (err) {
-    if ((err as Error).name === "AbortError") return;
+    if (signal.aborted || (err as Error).name === "AbortError") return;
     handlers.onError("Connection interrupted.");
+  } finally {
+    signal.removeEventListener("abort", onAbort);
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
   }
 }

@@ -9,6 +9,10 @@ Users create an email/password account, then enter their own OpenAI API key in S
 
 The app also fetches available models on startup, API-key changes, opening the model menu, and returning to the tab. Additional GPT-6 or newer text models returned for that key are merged into the menu without duplicates. Image generation continues to use the newest available GPT Image generation returned by OpenAI.
 
+New chats default to GPT-6.1 Sol with Medium effort. Answers render formatted Markdown as they stream, with short text and interface transitions that respect reduced-motion preferences. Click empty composer space to focus it; Enter sends and Shift+Enter adds a line on desktop and mobile.
+
+Editing a prompt replaces only its own reply and preserves every later turn. Image prompts keep their image model and size when edited, including after reopening the chat or switching to text mode. Image follow-ups include earlier instructions and up to sixteen recent image references; the browser sends private R2 URLs that the Worker resolves only for the signed-in owner. Earlier image prompts exclude later turns from their regeneration context.
+
 ## Local development
 
 Use Node.js 22.12+ or 24+.
@@ -29,7 +33,7 @@ npm run build
 
 With the local preview running, `npm run test:smoke` also exercises registration, private history, R2, and logout through the Pages service binding. It creates disposable local accounts only.
 
-Tests run inside Cloudflare's local Workers runtime with actual D1/R2 bindings and mocked OpenAI responses. They cover sign-in, session expiry and logout, rate limits, cross-account isolation, message ordering/editing/deletion, private uploads, model discovery, and streaming. They do not make paid OpenAI calls.
+Worker tests use Cloudflare's local runtime with actual D1/R2 bindings and mocked OpenAI responses. Frontend tests use jsdom to check composer input, incremental formatted rendering, preserved later messages, image follow-ups and editing, and closing transitions. The suites also cover sign-in, session expiry and logout, rate limits, cross-account isolation, message ordering/deletion, private uploads, and model discovery. They do not make paid OpenAI calls.
 
 ## Deploy to Cloudflare
 

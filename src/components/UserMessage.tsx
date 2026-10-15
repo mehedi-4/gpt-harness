@@ -36,6 +36,7 @@ export function UserMessage({
   const cancel = () => setEditing(false);
   const save = () => {
     const trimmed = draft.trim();
+    if (!trimmed || editingDisabled) return;
     setEditing(false);
     if (trimmed && trimmed !== message.content) onEdit(message.id, trimmed);
   };
@@ -43,10 +44,11 @@ export function UserMessage({
   if (editing) {
     return (
       <div className="flex justify-end">
-        <div className="w-full max-w-[76%] rounded-[22px] bg-surface-2 px-4 py-3">
+        <div className="ui-edit-panel w-full max-w-[88%] sm:max-w-[76%] rounded-[22px] bg-surface-2 px-4 py-3">
           <textarea
             ref={taRef}
             value={draft}
+            aria-label="Edit prompt"
             onChange={(e) => {
               setDraft(e.target.value);
               const ta = taRef.current;
@@ -56,7 +58,7 @@ export function UserMessage({
               }
             }}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
                 e.preventDefault();
                 save();
               } else if (e.key === "Escape") {
@@ -76,9 +78,10 @@ export function UserMessage({
             <button
               type="button"
               onClick={save}
+              disabled={!draft.trim() || editingDisabled}
               className="rounded-capsule bg-fg px-4 py-1.5 text-[14px] text-fg-inverse transition-opacity hover:opacity-90"
             >
-              Send
+              Save & send
             </button>
           </div>
         </div>

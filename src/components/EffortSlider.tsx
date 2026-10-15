@@ -1,5 +1,7 @@
 "use client";
 
+import { Presence } from "./Presence";
+
 import { useEffect, useId, useRef, useState } from "react";
 import type { Effort, ModelId } from "@/lib/types";
 import { EFFORT_STOPS, effortLabel, effortIndex, modelName } from "@/lib/models";
@@ -79,7 +81,7 @@ export function EffortSlider({
         </span>
       </button>
 
-      {open && (
+      <Presence show={open}>
         <div
           ref={popupRef}
           id={popupId}
@@ -121,7 +123,7 @@ export function EffortSlider({
             />
           </div>
         </div>
-      )}
+      </Presence>
     </div>
   );
 }

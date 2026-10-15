@@ -1,5 +1,7 @@
 "use client";
 
+import { Presence } from "./Presence";
+
 import { useRef, useState, useEffect } from "react";
 import type { Effort, Attachment, ImageSize, ImageModelId, ModelId } from "@/lib/types";
 import { IMAGE_SIZES, imageSizeLabel, imageModelName, type ModelDef } from "@/lib/models";
@@ -45,7 +47,7 @@ function ImageModelSelector({
           <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-      {open && (
+      <Presence show={open}>
         <div
           className="fixed inset-x-3 bottom-28 z-50 mb-2 sm:absolute sm:inset-x-auto sm:bottom-full sm:left-0 sm:w-[240px] overflow-hidden rounded-menu border border-hairline bg-surface-1 py-1.5"
           style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}
@@ -70,7 +72,7 @@ function ImageModelSelector({
             </button>
           ))}
         </div>
-      )}
+      </Presence>
     </div>
   );
 }
@@ -111,7 +113,7 @@ function ImageSizeSelector({
           <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-      {open && (
+      <Presence show={open}>
         <div
           className="fixed inset-x-3 bottom-28 z-50 mb-2 sm:absolute sm:inset-x-auto sm:bottom-full sm:left-0 sm:w-[180px] overflow-hidden rounded-menu border border-hairline bg-surface-1 py-1.5"
           style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}
@@ -136,7 +138,7 @@ function ImageSizeSelector({
             </button>
           ))}
         </div>
-      )}
+      </Presence>
     </div>
   );
 }
@@ -206,10 +208,11 @@ export function Composer({
     if ((!trimmed && attachments.length === 0) || generating || disabled) return;
     onSend(trimmed);
     setText("");
+    taRef.current?.focus();
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && !window.matchMedia("(pointer: coarse)").matches) {
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
       e.preventDefault();
       submit();
     }
@@ -227,8 +230,14 @@ export function Composer({
 
   return (
     <div
-      className="rounded-[26px] border border-hairline bg-surface-1 px-3 pb-2 pt-3"
-      style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}
+      data-composer
+      className="chat-composer rounded-[26px] border border-hairline bg-surface-1 px-3 pb-2 pt-3"
+      onClick={(event) => {
+        const target = event.target as HTMLElement;
+        if (target.closest("button, a, input, textarea, select, [role=dialog]")) return;
+        if (window.getSelection()?.toString()) return;
+        taRef.current?.focus();
+      }}
     >
       <input
         ref={fileRef}
@@ -256,6 +265,7 @@ export function Composer({
       <textarea
         ref={taRef}
         rows={1}
+        aria-label={imageMode ? "Describe an image" : "Ask ChatGPT"}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={onKeyDown}
@@ -265,7 +275,7 @@ export function Composer({
             ? "Describe an image…"
             : "Ask ChatGPT"
         }
-        className="max-h-60 w-full resize-none bg-transparent px-2 text-[17px] leading-6 outline-none placeholder:text-fg-tertiary"
+        className="block min-h-10 max-h-60 w-full resize-none bg-transparent px-2 text-[17px] leading-6 outline-none placeholder:text-fg-tertiary"
       />
 
       <div className="mt-1 flex flex-wrap items-center gap-2">

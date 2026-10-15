@@ -1,5 +1,7 @@
 "use client";
 
+import { Presence } from "./Presence";
+
 import { useEffect, useRef, useState } from "react";
 import type { Message } from "@/lib/types";
 import { Markdown } from "./Markdown";
@@ -72,7 +74,7 @@ function ExportMenu({
           <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </ActionButton>
-      {open && (
+      <Presence show={open}>
         <div
           className="absolute bottom-full left-0 z-50 mb-2 w-[180px] overflow-hidden rounded-menu border border-hairline bg-surface-1 py-1.5"
           style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}
@@ -99,7 +101,7 @@ function ExportMenu({
             Text (.txt)
           </button>
         </div>
-      )}
+      </Presence>
     </div>
   );
 }
@@ -167,7 +169,7 @@ export function AssistantMessage({ message }: { message: Message }) {
                   type="button"
                   aria-label="Download image"
                   onClick={() => downloadImage(src, i)}
-                  className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg bg-page/80 text-fg opacity-0 transition-opacity hover:bg-page group-hover/img:opacity-100"
+                  className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg bg-page/80 text-fg transition-opacity hover:bg-page md:opacity-0 md:group-hover/img:opacity-100 focus-visible:opacity-100"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                     <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -188,13 +190,13 @@ export function AssistantMessage({ message }: { message: Message }) {
       <SearchIndicator message={message} />
       <ThinkingIndicator message={message} />
 
-      {message.error ? (
-        <div className="rounded-lg border border-hairline bg-surface-2 px-4 py-3 text-[15px] text-fg-secondary">
+      {message.content && <div ref={contentRef}>
+        <Markdown content={message.content} streaming={message.streaming} />
+      </div>}
+
+      {message.error && (
+        <div role="alert" className="mt-3 rounded-lg border border-hairline bg-surface-2 px-4 py-3 text-[15px] text-fg-secondary">
           {message.error}
-        </div>
-      ) : (
-        <div ref={contentRef}>
-          <Markdown content={message.content} streaming={message.streaming} />
         </div>
       )}
 

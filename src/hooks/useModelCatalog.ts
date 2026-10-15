@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/apiFetch";
 import { chatModelCatalog, modelName, type ModelDef } from "@/lib/models";
-import { useChatStore } from "@/lib/store";
 
 const manualModels = chatModelCatalog();
 
@@ -28,7 +27,6 @@ export function useModelCatalog(apiKey: string) {
         const define = (items: { id: string }[]) => items.map((m) => ({ id: m.id, name: modelName(m.id) }));
         const models = chatModelCatalog(data.models);
         setCatalog({ key: apiKey, revision, models, imageModels: define(data.imageModels), error: "" });
-        if (models[0]) useChatStore.getState().setDefaultModel(models[0].id);
       } catch (error) {
         if (!controller.signal.aborted) setCatalog((previous) => ({ key: apiKey, revision, models: previous.key === apiKey && previous.models.length ? previous.models : manualModels, imageModels: previous.key === apiKey ? previous.imageModels : [], error: error instanceof Error ? error.message : "Could not load models." }));
       }

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "highlight.js/styles/github-dark.css";
+@import "streamdown/styles.css";
+@source "../../node_modules/streamdown/dist/*.js";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -49,9 +51,19 @@ body {
   height: 100%;
 }
 
-button { cursor: pointer; }
+button {
+  cursor: pointer;
+  transition-property: color, background-color, border-color, box-shadow, opacity, scale;
+  transition-duration: 160ms;
+  transition-timing-function: cubic-bezier(.2, .7, .2, 1);
+}
 button:disabled { cursor: default; }
+button:enabled:active { scale: .97; transition-duration: 80ms; transition-delay: 0ms; }
+@media (hover: hover) {
+  button:enabled:hover { transition-delay: 25ms; }
+}
 button:focus-visible, a:focus-visible { outline: 2px solid var(--color-link); outline-offset: 3px; }
+input, textarea, a { transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease; }
 @media (pointer: coarse) {
   input, textarea { font-size: 16px; }
 }
@@ -62,6 +74,43 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+.chat-composer {
+  box-shadow: 0 2px 14px #0000000a;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+.chat-composer:focus-within {
+  border-color: color-mix(in srgb, var(--color-fg-secondary) 45%, transparent);
+  box-shadow: 0 3px 20px #0000000d;
+}
+.chat-markdown { gap: 0; }
+.ui-presence { display: contents; }
+.ui-presence[data-state="closed"] > * { pointer-events: none; }
+.ui-popover > * { transform-origin: center; animation: surface-in 180ms cubic-bezier(.16, 1, .3, 1) both; }
+.ui-popover[data-state="closed"] > * { animation: surface-out 140ms ease both; }
+.ui-modal > * { animation: veil-in 180ms ease both; }
+.ui-modal > * > [role="dialog"] { animation: surface-in 220ms cubic-bezier(.16, 1, .3, 1) both; }
+.ui-modal[data-state="closed"] > * { animation: veil-out 140ms ease both; }
+.ui-modal[data-state="closed"] > * > [role="dialog"] { animation: surface-out 140ms ease both; }
+.ui-sidebar > button { animation: veil-in 180ms ease both; }
+.ui-sidebar > aside { animation: drawer-in 220ms cubic-bezier(.16, 1, .3, 1) both; }
+.ui-sidebar[data-state="closed"] > button { animation: veil-out 140ms ease both; }
+.ui-sidebar[data-state="closed"] > aside { animation: drawer-out 140ms ease both; }
+.ui-message, .ui-edit-panel { animation: message-in 220ms cubic-bezier(.16, 1, .3, 1) both; }
+@keyframes surface-in { from { opacity: 0; translate: 0 5px; scale: .98; } to { opacity: 1; translate: 0 0; scale: 1; } }
+@keyframes surface-out { from { opacity: 1; translate: 0 0; scale: 1; } to { opacity: 0; translate: 0 3px; scale: .985; } }
+@keyframes veil-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes veil-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes drawer-in { from { translate: -100% 0; } to { translate: 0 0; } }
+@keyframes drawer-out { from { translate: 0 0; } to { translate: -100% 0; } }
+@keyframes message-in { from { opacity: 0; translate: 0 4px; } to { opacity: 1; translate: 0 0; } }
+@media (min-width: 768px) {
+  .ui-sidebar > aside { overflow: hidden; animation-name: sidebar-in; }
+  .ui-sidebar > aside > div { min-width: 260px; }
+  .ui-sidebar[data-state="closed"] > aside { animation-name: sidebar-out; }
+  @keyframes sidebar-in { from { width: 0; opacity: 0; } to { width: 260px; opacity: 1; } }
+  @keyframes sidebar-out { from { width: 260px; opacity: 1; } to { width: 0; opacity: 0; } }
 }
 
 /* Shimmer used by the thinking indicator. */
@@ -136,7 +185,14 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .effort-rail[data-max="true"] .effort-sparks { animation: none; }
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Thin, unobtrusive scrollbars. */

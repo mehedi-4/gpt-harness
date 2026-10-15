@@ -3,6 +3,7 @@ import { EFFORT_STOPS } from "../../src/lib/models";
 import { isChatModel } from "../../src/lib/modelDiscovery";
 import { HttpError, json, readJson, requiredString, validId } from "./http";
 import type { Env } from "./env";
+import { orderMessages } from "../../src/lib/messageOrder";
 
 type Meta = Omit<Conversation, "messages">;
 
@@ -62,7 +63,7 @@ export async function conversations(request: Request, env: Env, userId: string, 
   if (parts.length === 2 && request.method === "GET") {
     const rows = await db.prepare("SELECT data FROM messages WHERE user_id = ? AND conversation_id = ? ORDER BY seq")
       .bind(userId, id).all<{ data: string }>();
-    return json({ messages: rows.results.map((r) => JSON.parse(r.data)) });
+    return json({ messages: orderMessages(rows.results.map((r) => JSON.parse(r.data))) });
   }
   const append = parts.length === 2 && request.method === "POST";
   const update = parts.length === 3 && request.method === "PATCH";
@@ -71,6 +72,12 @@ export async function conversations(request: Request, env: Env, userId: string, 
   validId(body.id);
   if (update && body.id !== validId(parts[2])) throw new HttpError(400, "Message ID mismatch.");
   if ((body.role !== "user" && body.role !== "assistant") || typeof body.content !== "string" || !Number.isFinite(body.createdAt)) throw new HttpError(400, "Invalid message.");
+  if (body.replyToId !== undefined) {
+    validId(body.replyToId);
+    const prompt = await db.prepare("SELECT data FROM messages WHERE user_id = ? AND conversation_id = ? AND id = ?")
+      .bind(userId, id, body.replyToId).first<{ data: string }>();
+    if (body.role !== "assistant" || !prompt || JSON.parse(prompt.data).role !== "user") throw new HttpError(400, "Invalid reply prompt.");
+  }
   // Store only durable, owner-scoped file references, never transient binary data.
   if (body.attachments !== undefined && !Array.isArray(body.attachments)) throw new HttpError(400, "Invalid attachments.");
   body.attachments = body.attachments?.map((a) => {

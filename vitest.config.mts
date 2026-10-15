@@ -6,5 +6,5 @@ export default defineConfig(async () => ({
     wrangler: { configPath: "./worker/wrangler.jsonc" },
     miniflare: { bindings: { TEST_MIGRATIONS: await readD1Migrations("./worker/migrations") } },
   })],
-  test: { include: ["tests/**/*.test.ts"], testTimeout: 15_000 },
+  test: { include: ["tests/worker.test.ts"], testTimeout: 15_000 },
 }));

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Message } from "@/lib/types";
+import { Presence } from "./Presence";
 
 export function ThinkingIndicator({ message }: { message: Message }) {
   const [open, setOpen] = useState(false);
@@ -49,11 +50,11 @@ export function ThinkingIndicator({ message }: { message: Message }) {
         )}
       </button>
 
-      {open && canExpand && (
+      <Presence show={open && canExpand}>
         <div className="mt-2 whitespace-pre-wrap border-l-2 border-hairline pl-3 text-[14px] leading-relaxed text-fg-secondary">
           {reasoning}
         </div>
-      )}
+      </Presence>
     </div>
   );
 }
