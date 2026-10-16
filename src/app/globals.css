@@ -97,7 +97,7 @@ body {
 .ui-sidebar > aside { animation: drawer-in 220ms cubic-bezier(.16, 1, .3, 1) both; }
 .ui-sidebar[data-state="closed"] > button { animation: veil-out 140ms ease both; }
 .ui-sidebar[data-state="closed"] > aside { animation: drawer-out 140ms ease both; }
-.ui-message, .ui-edit-panel { animation: message-in 220ms cubic-bezier(.16, 1, .3, 1) both; }
+.ui-message, .ui-edit-panel { animation: message-in 220ms cubic-bezier(.16, 1, .3, 1) backwards; }
 @keyframes surface-in { from { opacity: 0; translate: 0 5px; scale: .98; } to { opacity: 1; translate: 0 0; scale: 1; } }
 @keyframes surface-out { from { opacity: 1; translate: 0 0; scale: 1; } to { opacity: 0; translate: 0 3px; scale: .985; } }
 @keyframes veil-in { from { opacity: 0; } to { opacity: 1; } }
@@ -105,6 +105,14 @@ body {
 @keyframes drawer-in { from { translate: -100% 0; } to { translate: 0 0; } }
 @keyframes drawer-out { from { translate: 0 0; } to { translate: -100% 0; } }
 @keyframes message-in { from { opacity: 0; translate: 0 4px; } to { opacity: 1; translate: 0 0; } }
+
+/* Touch feedback is immediate; only visual motion is eased. Native layout
+   already consumes the status bar, navigation bar, and keyboard insets. */
+@media (pointer: coarse) {
+  button, a { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+}
+html[data-native="android"] body { overscroll-behavior: none; }
+html[data-native="android"] .chat-composer { transition-duration: 200ms; }
 @media (min-width: 768px) {
   .ui-sidebar > aside { overflow: hidden; animation-name: sidebar-in; }
   .ui-sidebar > aside > div { min-width: 260px; }

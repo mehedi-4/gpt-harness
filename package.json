@@ -12,6 +12,7 @@
     "test": "npm run test:worker && npm run test:ui",
     "test:worker": "vitest run",
     "test:ui": "vitest run --config vitest.ui.config.mts",
+    "android:build": "node scripts/android-build.mjs",
     "db:migrate:local": "wrangler d1 migrations apply DB --local --config worker/wrangler.jsonc --persist-to .wrangler/state",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote --config worker/wrangler.jsonc",
     "deploy:worker": "wrangler deploy --config worker/wrangler.jsonc",

@@ -1,4 +1,5 @@
 /** Client-only document export helpers (no dependencies). */
+import { postNative } from "./nativeBridge";
 
 function slugify(title: string): string {
   const s = title
@@ -20,11 +21,13 @@ function downloadBlob(blob: Blob, filename: string): void {
 
 /** Save raw markdown as a `.md` file. */
 export function downloadMarkdown(content: string, title: string): void {
+  if (postNative({ type: "saveText", text: content, filename: `${slugify(title)}.md`, mime: "text/markdown" })) return;
   downloadBlob(new Blob([content], { type: "text/markdown" }), `${slugify(title)}.md`);
 }
 
 /** Save raw text as a `.txt` file. */
 export function downloadText(content: string, title: string): void {
+  if (postNative({ type: "saveText", text: content, filename: `${slugify(title)}.txt`, mime: "text/plain" })) return;
   downloadBlob(new Blob([content], { type: "text/plain" }), `${slugify(title)}.txt`);
 }
 
@@ -35,9 +38,6 @@ export function downloadText(content: string, title: string): void {
  * Returns false if the popup was blocked so the caller can surface a hint.
  */
 export function printHtmlToPdf(html: string, title: string): boolean {
-  const win = window.open("", "_blank");
-  if (!win) return false;
-
   const doc = `<!doctype html>
 <html>
 <head>
@@ -74,6 +74,10 @@ export function printHtmlToPdf(html: string, title: string): boolean {
 </head>
 <body>${html}</body>
 </html>`;
+
+  if (postNative({ type: "print", html: doc, title })) return true;
+  const win = window.open("", "_blank");
+  if (!win) return false;
 
   win.document.open();
   win.document.write(doc);

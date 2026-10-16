@@ -43,3 +43,15 @@ next-env.d.ts
 .dev.vars*
 test-results/
 playwright-report/
+
+# Android builds, machine settings, and private signing material
+.local/
+/artifacts/
+android/.gradle/
+android/**/build/
+android/local.properties
+android/signing.properties
+*.jks
+*.keystore
+*.apk
+*.aab

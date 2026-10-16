@@ -7,6 +7,7 @@ import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
 import type { PluggableList } from "unified";
 import "katex/dist/katex.min.css";
+import { copyText } from "@/lib/nativeBridge";
 
 const remarkPlugins: PluggableList = [...Object.values(defaultRemarkPlugins), remarkMath];
 const livePlugins: PluggableList = [...Object.values(defaultRehypePlugins), [rehypeKatex, { throwOnError: false, strict: false }]];
@@ -32,7 +33,7 @@ function CodeBlock({
   const text = nodeText(children);
 
   const copy = () => {
-    navigator.clipboard.writeText(text.replace(/\n$/, ""));
+    void copyText(text.replace(/\n$/, ""));
     setCopied(true);
     setTimeout(() => setCopied(false), 1200);
   };

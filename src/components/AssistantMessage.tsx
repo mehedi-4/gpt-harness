@@ -10,6 +10,7 @@ import { SearchIndicator } from "./SearchIndicator";
 import { Citations } from "./Citations";
 import { downloadMarkdown, downloadText, printHtmlToPdf } from "@/lib/exportDoc";
 import type { DocFormat } from "@/lib/types";
+import { copyText } from "@/lib/nativeBridge";
 
 function ActionButton({
   label,
@@ -126,7 +127,7 @@ export function AssistantMessage({ message }: { message: Message }) {
   const contentRef = useRef<HTMLDivElement>(null);
 
   const copy = () => {
-    navigator.clipboard.writeText(message.content);
+    void copyText(message.content);
     setCopied(true);
     setTimeout(() => setCopied(false), 1200);
   };

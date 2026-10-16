@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { NativeShell } from "@/components/NativeShell";
 
 export const metadata: Metadata = {
   title: "ChatGPT",
@@ -23,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: noFlashScript }} />
       </head>
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full"><NativeShell />{children}</body>
     </html>
   );
 }

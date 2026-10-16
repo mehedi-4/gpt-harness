@@ -1,0 +1,15 @@
+<resources>
+    <style name="Theme.GPTHarness" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">@color/app_background</item>
+        <item name="android:colorAccent">#10A37F</item>
+        <item name="android:windowSoftInputMode">adjustResize</item>
+    </style>
+    <style name="Theme.GPTHarness.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/app_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_mark</item>
+        <item name="postSplashScreenTheme">@style/Theme.GPTHarness</item>
+    </style>
+</resources>

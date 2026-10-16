@@ -3,6 +3,8 @@
 
 Live app: [gpt-harness.pages.dev](https://gpt-harness.pages.dev).
 
+Android frontend: see [android/README.md](android/README.md). Run `npm run android:build` to build an APK using the same mobile UI and Cloudflare server.
+
 Next.js static frontend on Cloudflare Pages, with a private Cloudflare Worker API. D1 stores accounts, hashed sessions, and per-user conversations. A private R2 bucket stores uploaded files and generated images. No MongoDB, Cloudinary, or Node server is needed.
 
 Users create an email/password account, then enter their own OpenAI API key in Settings. Keys remain in account-scoped browser storage and are forwarded to OpenAI only for requests; they are never stored in D1 or R2. Each browser/device needs its own key. GPT-6.1 Sol, GPT-6.1 Luna, GPT-6 Astra, GPT-6 Sol, GPT-6 Terra, and GPT-6 Luna always appear in the model menu. Add future IDs to `MANUAL_CHAT_MODEL_IDS` in `src/lib/models.ts`. These manual choices remain visible even if OpenAI omits them from discovery; OpenAI still determines whether a key can use a selected model and errors appear in the chat.
